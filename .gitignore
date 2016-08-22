@@ -1,0 +1,12 @@
+*.csv
+*.pyc
+*.py~
+.idea/*
+*.log
+.ipynb_checkpoints/*
+*.pdf
+*.svg
+*.ipynb
+*.xlsx
+*.xlsx#
+*.png

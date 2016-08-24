@@ -7,7 +7,7 @@ from lifetimes.plotting import plot_frequency_recency_matrix, plot_probability_a
     plot_calibration_purchases_vs_holdout_purchases, \
     plot_history_alive
 
-import multiprocessing
+from multiprocessing import Process, Queue, current_process, cpu_count
 
 from datetime import timedelta, date
 from plt_save import save
@@ -37,7 +37,7 @@ if is_summary_available is False:
 
     summary.to_csv(output_file, sep=';', encoding='utf-8')
 else:
-    transaction_data = pd.read_csv(input_file, sep=';')
+    transaction_data = pd.read_excel(input_file, sep=';')
 
     recent_transaction_data = transaction_data[transaction_data['order_date'] > "2015-07-31"]
 
@@ -49,7 +49,6 @@ def bgf_analyser(summary, plot_source):
     bgf.fit(summary['frequency'],
             summary['recency'],
             summary['T'])
-    print bgf
 
     plot_frequency_recency_matrix(bgf)
     save("f_r_matrix_{}".format(plot_source), ext="pdf", close=True, verbose=True)
@@ -60,6 +59,8 @@ def bgf_analyser(summary, plot_source):
     plot_period_transactions(bgf)
     save("period_transactions_{}".format(plot_source), ext="pdf", close=True, verbose=True)
 
+    return bgf
+
 
 def bgf_history_alive(transaction_data, bgf, customer_id='80_3811'):
     id = customer_id
@@ -69,9 +70,9 @@ def bgf_history_alive(transaction_data, bgf, customer_id='80_3811'):
     save("history_alive_{}".format(plot_source), ext="pdf", close=True, verbose=True)
 
 
-def cal_vs_holdout_in_parallel(transaction_data, calibration_period_end='2016-05-01'):
+def cal_vs_holdout_in_parallel(data=transaction_data, calibration_period_end='2016-05-01'):
     bgf_ = BetaGeoFitter(penalizer_coef=0.0)
-    summary_cal_holdout = calibration_and_holdout_data(transaction_data, 'customer_id', 'order_date',
+    summary_cal_holdout = calibration_and_holdout_data(data, 'customer_id', 'order_date',
                                                            calibration_period_end=calibration_period_end,
                                                            observation_period_end='2016-08-03')
     print summary_cal_holdout.head()
@@ -80,13 +81,59 @@ def cal_vs_holdout_in_parallel(transaction_data, calibration_period_end='2016-05
     plot_calibration_purchases_vs_holdout_purchases(bgf_, summary_cal_holdout)
     save("cal_vs_holdout_{}".format(calibration_period_end), ext="pdf", close=True, verbose=True)
 
-start_date = date(2015, 10, 1)
+start_date = date(2016, 3, 20)
 end_date = date(2016, 4, 1)
 
 periods = [single_date.strftime("%Y-%m-%d") for single_date in daterange(start_date, end_date)]
+#
+# pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+# results = [pool.apply_async(func=cal_vs_holdout_in_parallel, args=(transaction_data, period)).get() for period in periods]
 
-pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-results = [pool.apply_async(func=cal_vs_holdout_in_parallel, args=(transaction_data, period)).get() for period in periods]
+#
+# Function run by worker processes
+#
+
+def worker(input, output):
+    for func, args in iter(input.get, 'STOP'):
+        result = calculate(func, args)
+        output.put(result)
+
+#
+# Function used to calculate result
+#
+
+def calculate(func, args):
+    result = func(*args)
+    return '%s says that %s%s = %s' % \
+        (current_process().name, func.__name__, args, result)
+
+#
+# Functions referenced by tasks
+#
+
+NUMBER_OF_PROCESSES = cpu_count()
+TASKS1 = [(cal_vs_holdout_in_parallel, (transaction_data, period)) for period in periods]
+
+# Create queues
+task_queue = Queue()
+done_queue = Queue()
+
+# Submit tasks
+for task in TASKS1:
+    task_queue.put(task)
+
+# Start worker processes
+for i in range(NUMBER_OF_PROCESSES):
+    Process(target=worker, args=(task_queue, done_queue)).start()
+
+# Get and print results
+print 'Unordered results:'
+for i in range(len(TASKS1)):
+    print '\t', done_queue.get()
+
+# Tell child processes to stop
+for i in range(NUMBER_OF_PROCESSES):
+    task_queue.put('STOP')
 
 
 def ggf_analyser(summary, bgf):

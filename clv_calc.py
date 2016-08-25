@@ -1,6 +1,6 @@
 import pandas as pd
 
-from lifetimes.utils import summary_data_from_transaction_data, calibration_and_holdout_data
+from lifetimes.utils import summary_data_from_transaction_data, calibration_and_holdout_data, customer_lifetime_value
 from lifetimes import BetaGeoFitter, GammaGammaFitter
 from lifetimes.plotting import plot_frequency_recency_matrix, plot_probability_alive_matrix, \
     plot_period_transactions, \
@@ -71,6 +71,8 @@ def bgf_history_alive(transaction_data, bgf, customer_id='80_3811'):
 
 
 def cal_vs_holdout_in_parallel(data=transaction_data, calibration_period_end='2016-05-01'):
+    print calibration_period_end
+
     bgf_ = BetaGeoFitter(penalizer_coef=0.0)
     summary_cal_holdout = calibration_and_holdout_data(data, 'customer_id', 'order_date',
                                                            calibration_period_end=calibration_period_end,
@@ -78,8 +80,8 @@ def cal_vs_holdout_in_parallel(data=transaction_data, calibration_period_end='20
     print summary_cal_holdout.head()
     bgf_.fit(summary_cal_holdout['frequency_cal'], summary_cal_holdout['recency_cal'], summary_cal_holdout['T_cal'])
 
-    plot_calibration_purchases_vs_holdout_purchases(bgf_, summary_cal_holdout)
-    save("cal_vs_holdout_{}".format(calibration_period_end), ext="pdf", close=True, verbose=True)
+    # plot_calibration_purchases_vs_holdout_purchases(bgf_, summary_cal_holdout)
+    # save("cal_vs_holdout_{}".format(calibration_period_end), ext="pdf", close=True, verbose=True)
 
 start_date = date(2016, 3, 20)
 end_date = date(2016, 4, 1)
@@ -136,7 +138,13 @@ for i in range(NUMBER_OF_PROCESSES):
     task_queue.put('STOP')
 
 
-def ggf_analyser(summary, bgf):
+def ggf_analyser(summary, bgf=None):
+    if bgf is None:
+        bgf = BetaGeoFitter(penalizer_coef=0.0)
+        bgf.fit(summary['frequency'],
+                summary['recency'],
+                summary['T'])
+
     returning_customers_summary = summary[summary['frequency'] > 0]
 
     print returning_customers_summary[['monetary_value', 'frequency']].corr()
@@ -154,7 +162,7 @@ def ggf_analyser(summary, bgf):
         summary[summary['frequency']>0]['monetary_value'].mean()
     )
 
-    return ggf.customer_lifetime_value(
+    return customer_lifetime_value(
         bgf, #the model to use to predict the number of future transactions
         summary['frequency'],
         summary['recency'],

@@ -1,4 +1,5 @@
 import pandas as pd
+from sklearn.metrics import mean_squared_error
 
 from lifetimes.utils import summary_data_from_transaction_data, calibration_and_holdout_data, customer_lifetime_value
 from lifetimes import BetaGeoFitter, GammaGammaFitter
@@ -9,7 +10,7 @@ from lifetimes.plotting import plot_frequency_recency_matrix, plot_probability_a
 
 from multiprocessing import Process, Queue, current_process, cpu_count
 
-from datetime import timedelta, date
+from datetime import timedelta, date, datetime
 from plt_save import save
 
 
@@ -20,6 +21,9 @@ def daterange(start_date, end_date):
 is_summary_available = True
 input_file = "FD DE customer orders and revenue (1).xlsx"
 output_file = "summary_fd_de_customers.csv"
+
+calibration_output_file = "summary_calibration_fd_de_customers.csv"
+holdout_output_file = "summary_holdout_fd_de_customers.csv"
 
 plot_source = "fd"
 
@@ -171,3 +175,45 @@ def ggf_analyser(summary, bgf=None):
         time=12, # months
         discount_rate=0.01 # monthly discount rate ~ 12.7% annually
     )
+
+
+def accuracy_calculator(prediction_model, transaction_data=transaction_data, discount_rate=0, calibration_period_end='2016-05-01', observation_period_end='2016-08-01'):
+    calibration_transaction_data = transaction_data[
+        "2015-07-31" < transaction_data['order_date'] < calibration_period_end]
+    holdout_transaction_data = transaction_data[transaction_data['order_date'] >= observation_period_end]
+
+    calibration_summary = summary_data_from_transaction_data(calibration_transaction_data,
+                                                 'customer_id', 'order_date',
+                                                 'revenue', observation_period_end=calibration_period_end)
+    holdout_summary = summary_data_from_transaction_data(holdout_transaction_data,
+                                                 'customer_id', 'order_date',
+                                                 'revenue', observation_period_end='2016-08-03')
+
+    print calibration_summary.head()
+    print holdout_summary.head()
+
+    calibration_summary.to_csv(calibration_output_file, sep=';', encoding='utf-8')
+    holdout_summary.to_csv(holdout_output_file, sep=';', encoding='utf-8')
+
+    if prediction_model is None:
+        bgf = BetaGeoFitter(penalizer_coef=0.0)
+        bgf.fit(calibration_summary['frequency'],
+                calibration_summary['recency'],
+                calibration_summary['T'])
+
+    d_observation = datetime.strptime(observation_period_end, '%Y-%m-%d').date()
+    d_calibration = datetime.strptime(calibration_period_end, '%Y-%m-%d').date()
+
+    df = pd.DataFrame(index=calibration_summary['frequency'].index)
+    df['pred_clv'] = 0  # initialize the pred_clv column to zeros
+    df['real_clv'] = 0
+
+    for i in range(30, ((d_observation-d_calibration).days/30)*30+1, 30):
+        expected_number_of_transactions = bgf.predict(i, calibration_summary['frequency'], calibration_summary['recency'], calibration_summary['T']) - bgf.predict(
+            i-30, calibration_summary['frequency'], calibration_summary['recency'], calibration_summary['T'])
+        # sum up the CLV estimates of all of the periods
+        df['pred_clv'] += (calibration_summary['monetary_value'] * expected_number_of_transactions) / (1 + discount_rate) ** (i / 30)
+
+    df['real_clv'] = holdout_transaction_data.groupby('customer_id')['revenue'].sum().fillna(0)
+
+    return mean_squared_error(df['real_clv'], df['pred_clv'])

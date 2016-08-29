@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 from lifetimes.utils import summary_data_from_transaction_data, calibration_and_holdout_data, customer_lifetime_value
 from lifetimes import BetaGeoFitter, GammaGammaFitter
@@ -19,11 +19,11 @@ def daterange(start_date, end_date):
         yield start_date + timedelta(n)
 
 is_summary_available = True
-input_file = "FD DE customer orders and revenue (1).xlsx"
-output_file = "summary_fd_de_customers.csv"
+input_file = "sg_customers.csv"
+output_file = "summary_sg_customers.csv"
 
-calibration_output_file = "summary_calibration_fd_de_customers.csv"
-holdout_output_file = "summary_holdout_fd_de_customers.csv"
+calibration_output_file = "summary_calibration_sg_customers.csv"
+holdout_output_file = "summary_holdout_sg_customers.csv"
 
 plot_source = "fd"
 
@@ -41,7 +41,7 @@ if is_summary_available is False:
 
     summary.to_csv(output_file, sep=';', encoding='utf-8')
 else:
-    transaction_data = pd.read_excel(input_file, sep=';')
+    transaction_data = pd.read_csv(input_file, sep=';')
 
     recent_transaction_data = transaction_data[transaction_data['order_date'] > "2015-07-31"]
 
@@ -177,14 +177,17 @@ def ggf_analyser(summary, bgf=None):
     )
 
 
-def accuracy_calculator(prediction_model, transaction_data=transaction_data, discount_rate=0, calibration_period_end='2016-05-01', observation_period_end='2016-08-01'):
-    calibration_transaction_data = transaction_data[
-        "2015-07-31" < transaction_data['order_date'] < calibration_period_end]
-    holdout_transaction_data = transaction_data[transaction_data['order_date'] >= observation_period_end]
+def clv_accuracy_calculator(prediction_model, transaction_data=transaction_data, discount_rate=0, calibration_period_end='2016-05-01', observation_period_end='2016-08-01'):
+    calibration_transaction_data = transaction_data[transaction_data['order_date'] < calibration_period_end]
+
+    calibration_transaction_data = calibration_transaction_data[calibration_transaction_data['order_date'] > "2015-07-31"]
+
+    holdout_transaction_data = transaction_data[transaction_data['order_date'] >= calibration_period_end]
 
     calibration_summary = summary_data_from_transaction_data(calibration_transaction_data,
                                                  'customer_id', 'order_date',
                                                  'revenue', observation_period_end=calibration_period_end)
+
     holdout_summary = summary_data_from_transaction_data(holdout_transaction_data,
                                                  'customer_id', 'order_date',
                                                  'revenue', observation_period_end='2016-08-03')
@@ -214,6 +217,9 @@ def accuracy_calculator(prediction_model, transaction_data=transaction_data, dis
         # sum up the CLV estimates of all of the periods
         df['pred_clv'] += (calibration_summary['monetary_value'] * expected_number_of_transactions) / (1 + discount_rate) ** (i / 30)
 
-    df['real_clv'] = holdout_transaction_data.groupby('customer_id')['revenue'].sum().fillna(0)
+    df['real_clv'] = holdout_transaction_data.groupby('customer_id')['revenue'].sum()
 
-    return mean_squared_error(df['real_clv'], df['pred_clv'])
+    df['real_clv'] = df['real_clv'].fillna(0)
+
+    # return df['real_clv'], df['pred_clv']
+    return mean_absolute_error(df['real_clv'], df['pred_clv'])

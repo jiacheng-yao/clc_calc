@@ -303,11 +303,14 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
     is_alive['real'] = 0
     is_alive['pred'] = 0
 
-    for real_idx in real_customers_alive.index:
-        is_alive.loc[real_idx]['real'] = 1
+    # for real_idx in real_customers_alive.index:
+    #     is_alive.loc[real_idx]['real'] = 1
 
-    for pred_idx in pred_customers_alive.index:
-        is_alive.loc[pred_idx]['pred'] = 1
+    # for pred_idx in pred_customers_alive.index:
+    #     is_alive.loc[pred_idx]['pred'] = 1
+
+    is_alive.ix[real_customers_alive.index]['real'] = 1
+    is_alive.ix[pred_customers_alive.index]['pred'] = 1
 
     print confusion_matrix(is_alive['real'], is_alive['pred'])
 

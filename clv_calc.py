@@ -184,15 +184,15 @@ def ggf_analyser(summary, bgf=None):
 def clv_accuracy_calculator(prediction_model, data=recent_transaction_data,
                             discount_rate=0, calibration_period_end='2016-05-01',
                             observation_period_end='2016-08-01'):
-    calibration_transaction_data = data[data['order_date'] < calibration_period_end]
+    calibration_data = data[data['order_date'] < calibration_period_end]
 
-    holdout_transaction_data = data[data['order_date'] >= calibration_period_end]
+    holdout_data = data[data['order_date'] >= calibration_period_end]
 
-    calibration_summary = summary_data_from_transaction_data(calibration_transaction_data,
+    calibration_summary = summary_data_from_transaction_data(calibration_data,
                                                  'customer_id', 'order_date',
                                                  'revenue', observation_period_end=calibration_period_end)
 
-    holdout_summary = summary_data_from_transaction_data(holdout_transaction_data,
+    holdout_summary = summary_data_from_transaction_data(holdout_data,
                                                  'customer_id', 'order_date',
                                                  'revenue', observation_period_end='2016-08-03')
 
@@ -205,8 +205,8 @@ def clv_accuracy_calculator(prediction_model, data=recent_transaction_data,
     if prediction_model is None:
         prediction_model = BetaGeoFitter(penalizer_coef=0.0)
         prediction_model.fit(calibration_summary['frequency'],
-                calibration_summary['recency'],
-                calibration_summary['T'])
+                             calibration_summary['recency'],
+                             calibration_summary['T'])
 
     d_observation = datetime.strptime(observation_period_end, '%Y-%m-%d').date()
     d_calibration = datetime.strptime(calibration_period_end, '%Y-%m-%d').date()
@@ -217,16 +217,16 @@ def clv_accuracy_calculator(prediction_model, data=recent_transaction_data,
 
     for i in range(30, ((d_observation-d_calibration).days/30)*30+1, 30):
         expected_number_of_transactions = prediction_model.predict(i, calibration_summary['frequency'],
-                                                      calibration_summary['recency'],
-                                                      calibration_summary['T']) - \
+                                                                   calibration_summary['recency'],
+                                                                   calibration_summary['T']) - \
                                           prediction_model.predict(i-30, calibration_summary['frequency'],
-                                                      calibration_summary['recency'],
-                                                      calibration_summary['T'])
+                                                                   calibration_summary['recency'],
+                                                                   calibration_summary['T'])
         # sum up the CLV estimates of all of the periods
         df['pred_clv'] += (calibration_summary['monetary_value'] * expected_number_of_transactions) / \
                           (1 + discount_rate) ** (i / 30)
 
-    df['real_clv'] = holdout_transaction_data.groupby('customer_id')['revenue'].sum()
+    df['real_clv'] = holdout_data.groupby('customer_id')['revenue'].sum()
 
     df['real_clv'] = df['real_clv'].fillna(0)
 
@@ -263,16 +263,16 @@ def clv_accuracy_calculator_cohort_comparison(data=recent_transaction_data):
 
 
 def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
-                                 calibration_period_end='2016-05-01'):
-    calibration_transaction_data = transaction_data[transaction_data['order_date'] < calibration_period_end]
+                                 calibration_period_end='2016-05-01', threshold=0.05):
+    calibration_data = data[data['order_date'] < calibration_period_end]
 
-    holdout_transaction_data = transaction_data[transaction_data['order_date'] >= calibration_period_end]
+    holdout_data = data[data['order_date'] >= calibration_period_end]
 
-    calibration_summary = summary_data_from_transaction_data(calibration_transaction_data,
+    calibration_summary = summary_data_from_transaction_data(calibration_data,
                                                              'customer_id', 'order_date',
                                                              'revenue', observation_period_end=calibration_period_end)
 
-    holdout_summary = summary_data_from_transaction_data(holdout_transaction_data,
+    holdout_summary = summary_data_from_transaction_data(holdout_data,
                                                          'customer_id', 'order_date',
                                                          'revenue', observation_period_end='2016-08-03')
 
@@ -288,6 +288,13 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
                              calibration_summary['recency'],
                              calibration_summary['T'])
 
-    alive_prob = calibration_summary.apply(lambda row: prediction_model.conditional_probability_alive(row['frequency'], row['recency'], row['T']), axis=1)
+    alive_prob = calibration_summary.apply(lambda row:
+                                           prediction_model.conditional_probability_alive(
+                                               row['frequency'], row['recency'], row['T']), axis=1)
 
-    return alive_prob[alive_prob < 0.05]
+    customers = holdout_data.groupby('customer_id', sort=False)['order_date'].agg(['count'])
+
+    real_customers_alive = customers[customers['count'] > 0]
+    pred_customers_alive = alive_prob[alive_prob > threshold]
+
+    return real_customers_alive, pred_customers_alive

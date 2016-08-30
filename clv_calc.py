@@ -181,12 +181,12 @@ def ggf_analyser(summary, bgf=None):
     )
 
 
-def clv_accuracy_calculator(prediction_model, transaction_data=recent_transaction_data,
+def clv_accuracy_calculator(prediction_model, data=recent_transaction_data,
                             discount_rate=0, calibration_period_end='2016-05-01',
                             observation_period_end='2016-08-01'):
-    calibration_transaction_data = transaction_data[transaction_data['order_date'] < calibration_period_end]
+    calibration_transaction_data = data[data['order_date'] < calibration_period_end]
 
-    holdout_transaction_data = transaction_data[transaction_data['order_date'] >= calibration_period_end]
+    holdout_transaction_data = data[data['order_date'] >= calibration_period_end]
 
     calibration_summary = summary_data_from_transaction_data(calibration_transaction_data,
                                                  'customer_id', 'order_date',
@@ -203,8 +203,8 @@ def clv_accuracy_calculator(prediction_model, transaction_data=recent_transactio
     holdout_summary.to_csv(holdout_output_file, sep=';', encoding='utf-8')
 
     if prediction_model is None:
-        bgf = BetaGeoFitter(penalizer_coef=0.0)
-        bgf.fit(calibration_summary['frequency'],
+        prediction_model = BetaGeoFitter(penalizer_coef=0.0)
+        prediction_model.fit(calibration_summary['frequency'],
                 calibration_summary['recency'],
                 calibration_summary['T'])
 
@@ -216,10 +216,10 @@ def clv_accuracy_calculator(prediction_model, transaction_data=recent_transactio
     df['real_clv'] = 0
 
     for i in range(30, ((d_observation-d_calibration).days/30)*30+1, 30):
-        expected_number_of_transactions = bgf.predict(i, calibration_summary['frequency'],
+        expected_number_of_transactions = prediction_model.predict(i, calibration_summary['frequency'],
                                                       calibration_summary['recency'],
                                                       calibration_summary['T']) - \
-                                          bgf.predict(i-30, calibration_summary['frequency'],
+                                          prediction_model.predict(i-30, calibration_summary['frequency'],
                                                       calibration_summary['recency'],
                                                       calibration_summary['T'])
         # sum up the CLV estimates of all of the periods
@@ -260,3 +260,34 @@ def clv_accuracy_calculator_cohort_comparison(data=recent_transaction_data):
         mse_list.append(mean_absolute_error(real_clv, pred_clv))
 
     return mse_list
+
+
+def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
+                                 calibration_period_end='2016-05-01'):
+    calibration_transaction_data = transaction_data[transaction_data['order_date'] < calibration_period_end]
+
+    holdout_transaction_data = transaction_data[transaction_data['order_date'] >= calibration_period_end]
+
+    calibration_summary = summary_data_from_transaction_data(calibration_transaction_data,
+                                                             'customer_id', 'order_date',
+                                                             'revenue', observation_period_end=calibration_period_end)
+
+    holdout_summary = summary_data_from_transaction_data(holdout_transaction_data,
+                                                         'customer_id', 'order_date',
+                                                         'revenue', observation_period_end='2016-08-03')
+
+    print calibration_summary.head()
+    print holdout_summary.head()
+
+    calibration_summary.to_csv(calibration_output_file, sep=';', encoding='utf-8')
+    holdout_summary.to_csv(holdout_output_file, sep=';', encoding='utf-8')
+
+    if prediction_model is None:
+        prediction_model = BetaGeoFitter(penalizer_coef=0.0)
+        prediction_model.fit(calibration_summary['frequency'],
+                             calibration_summary['recency'],
+                             calibration_summary['T'])
+
+    alive_prob = calibration_summary.apply(lambda row: prediction_model.conditional_probability_alive(row['frequency'], row['recency'], row['T']), axis=1)
+
+    return alive_prob[alive_prob < 0.05]

@@ -7,13 +7,21 @@ from plt_save import save
 
 import seaborn as sns
 
-plot_source = "fd"
+from datetime import datetime
+
+plot_source = "sg"
 
 pd.set_option('max_columns', 50)
 mpl.rcParams['lines.linewidth'] = 2
 
-df = pd.read_excel('FD DE customer orders and revenue (1).xlsx')
+df = pd.read_csv('sg_customers.csv', sep=';')
+# df = pd.read_excel('FD DE customer orders and revenue (1).xlsx', sep=';')
 df.head()
+
+df = df[df['order_date'] > "2015-05-31"]
+
+if plot_source is "sg":
+    df['order_date'] = df.order_date.apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
 
 df['order_period'] = df.order_date.apply(lambda x: x.strftime('%Y-%m'))
 df.head()

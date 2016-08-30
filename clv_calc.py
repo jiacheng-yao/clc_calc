@@ -11,6 +11,7 @@ from lifetimes.plotting import plot_frequency_recency_matrix, plot_probability_a
 from multiprocessing import Process, Queue, current_process, cpu_count
 
 from datetime import timedelta, date, datetime
+from dateutil.rrule import rrule, MONTHLY
 from plt_save import save
 
 
@@ -25,13 +26,13 @@ output_file = "summary_sg_customers.csv"
 calibration_output_file = "summary_calibration_sg_customers.csv"
 holdout_output_file = "summary_holdout_sg_customers.csv"
 
-plot_source = "fd"
+plot_source = "sg"
 
 if is_summary_available is False:
     # transaction_data = pd.read_csv(input_file, sep=';')
     transaction_data = pd.read_excel(input_file, sep=';') # for FD dataset
 
-    recent_transaction_data = transaction_data[transaction_data['order_date'] > "2015-07-31"]
+    recent_transaction_data = transaction_data[transaction_data['order_date'] > "2015-05-31"]
 
     summary = summary_data_from_transaction_data(recent_transaction_data,
                                                  'customer_id', 'order_date',
@@ -43,9 +44,12 @@ if is_summary_available is False:
 else:
     transaction_data = pd.read_csv(input_file, sep=';')
 
-    recent_transaction_data = transaction_data[transaction_data['order_date'] > "2015-07-31"]
+    recent_transaction_data = transaction_data[transaction_data['order_date'] > "2015-05-31"]
 
     summary = pd.read_csv(output_file, sep=';')
+
+if plot_source is "sg":
+    recent_transaction_data['order_date'] = recent_transaction_data.order_date.apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
 
 
 def bgf_analyser(summary, plot_source):
@@ -66,15 +70,15 @@ def bgf_analyser(summary, plot_source):
     return bgf
 
 
-def bgf_history_alive(transaction_data, bgf, customer_id='80_3811'):
+def bgf_history_alive(data=recent_transaction_data, bgf=None, customer_id='80_3811'):
     id = customer_id
     days_since_birth = 365
-    sp_trans = transaction_data.ix[transaction_data['customer_id'] == id]
+    sp_trans = data.ix[data['customer_id'] == id]
     plot_history_alive(bgf, days_since_birth, sp_trans, 'order_date')
     save("history_alive_{}".format(plot_source), ext="pdf", close=True, verbose=True)
 
 
-def cal_vs_holdout_in_parallel(data=transaction_data, calibration_period_end='2016-05-01'):
+def cal_vs_holdout_in_parallel(data=recent_transaction_data, calibration_period_end='2016-05-01'):
     print calibration_period_end
 
     bgf_ = BetaGeoFitter(penalizer_coef=0.0)
@@ -177,10 +181,10 @@ def ggf_analyser(summary, bgf=None):
     )
 
 
-def clv_accuracy_calculator(prediction_model, transaction_data=transaction_data, discount_rate=0, calibration_period_end='2016-05-01', observation_period_end='2016-08-01'):
+def clv_accuracy_calculator(prediction_model, transaction_data=recent_transaction_data,
+                            discount_rate=0, calibration_period_end='2016-05-01',
+                            observation_period_end='2016-08-01'):
     calibration_transaction_data = transaction_data[transaction_data['order_date'] < calibration_period_end]
-
-    calibration_transaction_data = calibration_transaction_data[calibration_transaction_data['order_date'] > "2015-07-31"]
 
     holdout_transaction_data = transaction_data[transaction_data['order_date'] >= calibration_period_end]
 
@@ -212,10 +216,15 @@ def clv_accuracy_calculator(prediction_model, transaction_data=transaction_data,
     df['real_clv'] = 0
 
     for i in range(30, ((d_observation-d_calibration).days/30)*30+1, 30):
-        expected_number_of_transactions = bgf.predict(i, calibration_summary['frequency'], calibration_summary['recency'], calibration_summary['T']) - bgf.predict(
-            i-30, calibration_summary['frequency'], calibration_summary['recency'], calibration_summary['T'])
+        expected_number_of_transactions = bgf.predict(i, calibration_summary['frequency'],
+                                                      calibration_summary['recency'],
+                                                      calibration_summary['T']) - \
+                                          bgf.predict(i-30, calibration_summary['frequency'],
+                                                      calibration_summary['recency'],
+                                                      calibration_summary['T'])
         # sum up the CLV estimates of all of the periods
-        df['pred_clv'] += (calibration_summary['monetary_value'] * expected_number_of_transactions) / (1 + discount_rate) ** (i / 30)
+        df['pred_clv'] += (calibration_summary['monetary_value'] * expected_number_of_transactions) / \
+                          (1 + discount_rate) ** (i / 30)
 
     df['real_clv'] = holdout_transaction_data.groupby('customer_id')['revenue'].sum()
 
@@ -223,3 +232,31 @@ def clv_accuracy_calculator(prediction_model, transaction_data=transaction_data,
 
     # return df['real_clv'], df['pred_clv']
     return mean_absolute_error(df['real_clv'], df['pred_clv'])
+
+
+def clv_accuracy_calculator_per_cohort(prediction_model, data=recent_transaction_data, cohort='2015-06',
+                                       discount_rate=0, calibration_period_end='2016-05-01',
+                                       observation_period_end='2016-08-01'):
+    data.set_index('customer_id', inplace=True)
+    data['cohort_group'] = data.groupby(level=0)['order_date'].min().apply(lambda x: x.strftime('%Y-%m'))
+    data.reset_index(inplace=True)
+
+    data_in_cohort = data[data['cohort_group'] == cohort]
+
+    return clv_accuracy_calculator(prediction_model, data_in_cohort,
+                                   discount_rate, calibration_period_end,
+                                   observation_period_end)
+
+
+def clv_accuracy_calculator_cohort_comparison(data=recent_transaction_data):
+    cohort_start = date(2015, 6, 1)
+    cohort_end = date(2016, 3, 1)
+
+    dates = [dt.strftime('%Y-%m') for dt in rrule(MONTHLY, dtstart=cohort_start, until=cohort_end)]
+
+    mse_list = []
+    for d in dates:
+        real_clv, pred_clv = clv_accuracy_calculator_per_cohort(None, data, cohort=d)
+        mse_list.append(mean_absolute_error(real_clv, pred_clv))
+
+    return mse_list

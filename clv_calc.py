@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error, confusion_matrix
 
 from lifetimes.utils import summary_data_from_transaction_data, calibration_and_holdout_data, customer_lifetime_value
 from lifetimes import BetaGeoFitter, GammaGammaFitter
@@ -297,4 +297,18 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
     real_customers_alive = customers[customers['count'] > 0]
     pred_customers_alive = alive_prob[alive_prob > threshold]
 
-    return real_customers_alive, pred_customers_alive
+    is_alive_index = list(set(calibration_summary['frequency'].index + holdout_summary['frequency'].index))
+
+    is_alive = pd.DataFrame(index=is_alive_index)
+    is_alive['real'] = 0
+    is_alive['pred'] = 0
+
+    for real_idx in real_customers_alive.index:
+        is_alive.loc[real_idx]['real'] = 1
+
+    for pred_idx in pred_customers_alive.index:
+        is_alive.loc[pred_idx]['pred'] = 1
+
+    print confusion_matrix(is_alive['real'], is_alive['pred'])
+
+    return is_alive

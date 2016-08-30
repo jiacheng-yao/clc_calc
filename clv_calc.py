@@ -263,7 +263,7 @@ def clv_accuracy_calculator_cohort_comparison(data=recent_transaction_data):
 
 
 def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
-                                 calibration_period_end='2016-05-01', threshold=0.05):
+                                 calibration_period_end='2016-05-01', threshold=0.01):
     calibration_data = data[data['order_date'] < calibration_period_end]
 
     holdout_data = data[data['order_date'] >= calibration_period_end]
@@ -297,7 +297,7 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
     real_customers_alive = customers[customers['count'] > 0]
     pred_customers_alive = alive_prob[alive_prob > threshold]
 
-    is_alive_index = list(set(calibration_summary['frequency'].index + holdout_summary['frequency'].index))
+    is_alive_index = list(set(calibration_summary['frequency'].index) | set(holdout_summary['frequency'].index))
 
     is_alive = pd.DataFrame(index=is_alive_index)
     is_alive['real'] = 0
@@ -309,8 +309,8 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
     # for pred_idx in pred_customers_alive.index:
     #     is_alive.loc[pred_idx]['pred'] = 1
 
-    is_alive.ix[real_customers_alive.index]['real'] = 1
-    is_alive.ix[pred_customers_alive.index]['pred'] = 1
+    is_alive.ix[real_customers_alive.index, 'real'] = 1
+    is_alive.ix[pred_customers_alive.index, 'pred'] = 1
 
     print confusion_matrix(is_alive['real'], is_alive['pred'])
 

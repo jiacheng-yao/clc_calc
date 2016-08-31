@@ -313,6 +313,10 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
     cm = confusion_matrix(is_alive['real'], is_alive['pred'])
     float(cm[0][0] + cm[1][1]) / float(len(is_alive.index))
 
+    return alive_prob, is_alive
+
+
+def churning_rate_tp_tn_cutoff_impact(alive_prob, is_alive):
     t = np.arange(0, 1.01, 0.01)
 
     tp_tn_list = []
@@ -333,5 +337,3 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
     # plt.axis([0, 1, 0, 1])
     # plt.show()
     save("tp_tn_percentage_threshold_{}".format(plot_source), ext="pdf", close=True, verbose=True)
-
-    return is_alive

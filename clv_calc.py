@@ -1,5 +1,8 @@
 import pandas as pd
+import numpy as np
 from sklearn.metrics import mean_squared_error, mean_absolute_error, confusion_matrix
+
+import matplotlib.pyplot as plt
 
 from lifetimes.utils import summary_data_from_transaction_data, calibration_and_holdout_data, customer_lifetime_value
 from lifetimes import BetaGeoFitter, GammaGammaFitter
@@ -309,5 +312,26 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
 
     cm = confusion_matrix(is_alive['real'], is_alive['pred'])
     float(cm[0][0] + cm[1][1]) / float(len(is_alive.index))
+
+    t = np.arange(0, 1.01, 0.01)
+
+    tp_tn_list = []
+    for i in t:
+        threshold = i
+        pred_customers_not_alive = alive_prob[alive_prob < threshold]
+
+        is_alive['pred'] = 1
+        is_alive.ix[pred_customers_not_alive.index, 'pred'] = 0
+
+        cm = confusion_matrix(is_alive['real'], is_alive['pred'])
+        tp_tn_list.append(float(cm[0][0] + cm[1][1]) / float(len(is_alive.index)))
+
+    plt.plot(t, tp_tn_list)
+    plt.xlabel('Cutoff Threshold for Churn Rate')
+    plt.ylabel('Percentage of TP+TN')
+    plt.title('Impact of Cutoff Threshold on Churn Rate Prediction Accuracy')
+    # plt.axis([0, 1, 0, 1])
+    # plt.show()
+    save("tp_tn_percentage_threshold_{}".format(plot_source), ext="pdf", close=True, verbose=True)
 
     return is_alive

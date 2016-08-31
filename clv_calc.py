@@ -32,7 +32,7 @@ if is_summary_available is False:
     # transaction_data = pd.read_csv(input_file, sep=';')
     transaction_data = pd.read_excel(input_file, sep=';') # for FD dataset
 
-    recent_transaction_data = transaction_data[transaction_data['order_date'] > "2015-05-31"]
+    recent_transaction_data = transaction_data[transaction_data['order_date'] > "2014-12-31"]
 
     summary = summary_data_from_transaction_data(recent_transaction_data,
                                                  'customer_id', 'order_date',
@@ -44,7 +44,7 @@ if is_summary_available is False:
 else:
     transaction_data = pd.read_csv(input_file, sep=';')
 
-    recent_transaction_data = transaction_data[transaction_data['order_date'] > "2015-05-31"]
+    recent_transaction_data = transaction_data[transaction_data['order_date'] > "2014-12-31"]
 
     summary = pd.read_csv(output_file, sep=';')
 
@@ -307,6 +307,7 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
     is_alive.ix[real_customers_not_alive_index, 'real'] = 0
     is_alive.ix[pred_customers_not_alive.index, 'pred'] = 0
 
-    print confusion_matrix(is_alive['real'], is_alive['pred'])
+    cm = confusion_matrix(is_alive['real'], is_alive['pred'])
+    float(cm[0][0] + cm[1][1]) / float(len(is_alive.index))
 
     return is_alive

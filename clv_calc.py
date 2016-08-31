@@ -5,7 +5,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, confusion_m
 import matplotlib.pyplot as plt
 
 from lifetimes.utils import summary_data_from_transaction_data, calibration_and_holdout_data, customer_lifetime_value
-from lifetimes import BetaGeoFitter, GammaGammaFitter
+from lifetimes import BetaGeoFitter, GammaGammaFitter, ModifiedBetaGeoFitter
 from lifetimes.plotting import plot_frequency_recency_matrix, plot_probability_alive_matrix, \
     plot_period_transactions, \
     plot_calibration_purchases_vs_holdout_purchases, \
@@ -286,7 +286,7 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
     holdout_summary.to_csv(holdout_output_file, sep=';', encoding='utf-8')
 
     if prediction_model is None:
-        prediction_model = BetaGeoFitter(penalizer_coef=0.0)
+        prediction_model = ModifiedBetaGeoFitter(penalizer_coef=0.0)
         prediction_model.fit(calibration_summary['frequency'],
                              calibration_summary['recency'],
                              calibration_summary['T'])

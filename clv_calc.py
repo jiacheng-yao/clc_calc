@@ -292,9 +292,9 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
                                            prediction_model.conditional_probability_alive(
                                                row['frequency'], row['recency'], row['T']), axis=1)
 
-    customers = holdout_data.groupby('customer_id', sort=False)['order_date'].agg(['count'])
-
-    real_customers_alive = customers[customers['count'] > 0]
+    # customers = holdout_data.groupby('customer_id', sort=False)['order_date'].agg(['count'])
+    #
+    # real_customers_alive = customers[customers['count'] > 0]
     pred_customers_alive = alive_prob[alive_prob > threshold]
 
     is_alive_index = list(set(calibration_summary['frequency'].index) | set(holdout_summary['frequency'].index))
@@ -303,7 +303,7 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
     is_alive['real'] = 0
     is_alive['pred'] = 0
 
-    is_alive.ix[real_customers_alive.index, 'real'] = 1
+    is_alive.ix[holdout_summary['frequency'].index, 'real'] = 1
     is_alive.ix[pred_customers_alive.index, 'pred'] = 1
 
     print confusion_matrix(is_alive['real'], is_alive['pred'])

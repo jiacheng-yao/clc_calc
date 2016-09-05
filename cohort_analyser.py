@@ -9,18 +9,20 @@ import seaborn as sns
 
 from datetime import datetime
 
-plot_source = "sg"
+plot_source = "full_fd"
 
 pd.set_option('max_columns', 50)
 mpl.rcParams['lines.linewidth'] = 2
 
-df = pd.read_csv('sg_customers.csv', sep=';')
+df = pd.read_excel('FD DE customer orders and revenue (1).xlsx', sep=';')
 # df = pd.read_excel('FD DE customer orders and revenue (1).xlsx', sep=';')
 df.head()
 
-df = df[df['order_date'] > "2015-05-31"]
+# df = df[df['order_date'] > "2015-05-31"]
 
-if plot_source is "sg":
+df = df[df['order_date'] < "2016-08-01"]
+
+if plot_source is "full_sg":
     df['order_date'] = df.order_date.apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
 
 df['order_period'] = df.order_date.apply(lambda x: x.strftime('%Y-%m'))
@@ -86,7 +88,7 @@ save("user_retention_{}".format(plot_source), ext="pdf", close=True, verbose=Tru
 
 sns.set(style='white')
 
-plt.figure(figsize=(12, 8))
+plt.figure(figsize=(18, 12))
 plt.title('Cohorts: User Retention')
 sns.heatmap(user_retention.T, mask=user_retention.T.isnull(), annot=True, fmt='.0%')
 save("user_retention_heatmap_{}".format(plot_source), ext="pdf", close=True, verbose=True)

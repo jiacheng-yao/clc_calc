@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.metrics import mean_squared_error, mean_absolute_error, confusion_matrix
+from sklearn.metrics import mean_squared_error, mean_absolute_error, confusion_matrix, r2_score, f1_score
 
 import matplotlib.pyplot as plt
 
@@ -206,7 +206,7 @@ def clv_accuracy_calculator(prediction_model, data=recent_transaction_data,
     holdout_summary.to_csv(holdout_output_file, sep=';', encoding='utf-8')
 
     if prediction_model is None:
-        prediction_model = BetaGeoFitter(penalizer_coef=0.0)
+        prediction_model = ModifiedBetaGeoFitter(penalizer_coef=0.0)
         prediction_model.fit(calibration_summary['frequency'],
                              calibration_summary['recency'],
                              calibration_summary['T'])
@@ -233,8 +233,12 @@ def clv_accuracy_calculator(prediction_model, data=recent_transaction_data,
 
     df['real_clv'] = df['real_clv'].fillna(0)
 
+    mse = mean_squared_error(df['real_clv'], df['pred_clv'])
+    mse_div_avg = mean_squared_error(df['real_clv'], df['pred_clv'])/df['real_clv'].mean()
+    r2 = r2_score(df['real_clv'], df['pred_clv'])
+
     # return df['real_clv'], df['pred_clv']
-    return mean_absolute_error(df['real_clv'], df['pred_clv'])
+    return mse, mse_div_avg, r2
 
 
 def clv_accuracy_calculator_per_cohort(prediction_model, data=recent_transaction_data, cohort='2015-06',
@@ -258,15 +262,19 @@ def clv_accuracy_calculator_cohort_comparison(data=recent_transaction_data):
     dates = [dt.strftime('%Y-%m') for dt in rrule(MONTHLY, dtstart=cohort_start, until=cohort_end)]
 
     mse_list = []
+    mse_div_avg_list = []
+    r2_list = []
     for d in dates:
-        real_clv, pred_clv = clv_accuracy_calculator_per_cohort(None, data, cohort=d)
-        mse_list.append(mean_absolute_error(real_clv, pred_clv))
+        mse, mse_div_avg, r2 = clv_accuracy_calculator_per_cohort(None, data, cohort=d)
+        mse_list.append(mse)
+        mse_div_avg_list.append(mse_div_avg)
+        r2_list.append(r2)
 
-    return mse_list
+    return mse_list, mse_div_avg_list, r2_list
 
 
 def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
-                                 calibration_period_end='2016-05-01', threshold=0.01):
+                                 calibration_period_end='2015-08-01', threshold=0.01):
     calibration_data = data[data['order_date'] < calibration_period_end]
 
     holdout_data = data[data['order_date'] >= calibration_period_end]
@@ -312,6 +320,8 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
 
     cm = confusion_matrix(is_alive['real'], is_alive['pred'])
     float(cm[0][0] + cm[1][1]) / float(len(is_alive.index))
+
+    f1 = f1_score(is_alive['real'], is_alive['pred'])
 
     return alive_prob, is_alive
 

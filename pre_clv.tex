@@ -1,0 +1,253 @@
+\documentclass{beamer} % "Beamer" is a word used in Germany to mean video projector. 
+
+\usetheme{Berkeley} % Search online for beamer themes to find your favorite or use the Berkeley theme as in this file.
+
+\usepackage{color} % It may be necessary to set PCTeX or whatever program you are using to output a .pdf instead of a .dvi file in order to see color on your screen.
+\usepackage{graphicx} % This package is needed if you wish to include external image files.
+
+\theoremstyle{definition} % See Lesson Three of the LaTeX Manual for more on this kind of "proclamation."
+\newtheorem*{dfn}{Customer Lifetime Value for Customer $k$}               
+
+\title{Customer Lifetime Value on Foodora and Foodpanda Datasets}
+\author{Jiacheng Yao} 
+\institute{Mathemads, Rocket Internet SE}
+%\date{January 6, 2012} 
+% Remove the % from the previous line and change the date if you want a particular date to be displayed; otherwise, today's date is displayed by default.
+
+\AtBeginSection[]  % The commands within the following {} will be executed at the start of each section.
+{
+\begin{frame} % Within each "frame" there will be one or more "slides."  
+\frametitle{Presentation Outline} % This is the title of the outline.
+\tableofcontents[currentsection]  % This will display the table of contents and highlight the current section.
+\end{frame}
+} % Do not include the preceding set of commands if you prefer not to have a recurring outline displayed during your presentation.
+
+\begin{document}
+
+\begin{frame} 
+\titlepage
+\end{frame}
+
+\section{Definition} % Since this is the start of a new section, our recurring outline will appear here.
+
+\begin{frame} 
+\frametitle{Definition: Customer Lifetime Value (CLV)}
+
+\begin{dfn} % We created the proclamation dfn near the start of the document.
+$CLV^{k} = \displaystyle\sum_{i=0}^{T} \cfrac{Profit_t^{k}}{(1+i_t)^{t}}$ 
+\end{dfn}
+
+\pause $i_t$ = Interest rate $i$ at Timepoint $t$ \\
+\pause $T$ = Predicted lifetime period for customer $k$
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Approaches}
+
+\begin{itemize}
+\item Parametric Models
+\begin{itemize}
+\pause \item Pareto/NBD (Schmittlein et al., 1987)
+\pause \item BG/NBD (Fader et al., 2005)
+\pause \item etc 
+\end{itemize}
+\item Non-parametric Models
+\end{itemize}
+
+\end{frame}
+
+\section{Implementation on the Datasets}
+
+\begin{frame}
+\frametitle{Cohort Analysis (Foodora)}
+
+\begin{center}
+            \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{user_retention_full_fd.pdf}
+        \end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Cohort Analysis (Foodora)}
+
+\begin{center}
+            \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{user_retention_heatmap_full_fd.pdf}
+        \end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Cohort Analysis (Foodpanda)}
+
+\begin{center}
+            \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{user_retention_sg.pdf}
+        \end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Cohort Analysis (Foodpanda)}
+
+\begin{center}
+            \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{user_retention_heatmap_sg.pdf}
+        \end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Modeling with BG/NBD (Foodora)}
+\begin{center}
+            \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{f_r_matrix_fd.pdf}
+        \end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Modeling with BG/NBD (Foodora)}
+\begin{center}
+            \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{pr_alive_matrix_fd.pdf}
+        \end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Modeling with BG/NBD (Foodora)}
+\begin{center}
+            \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{period_transactions_fd.pdf}
+        \end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Modeling with BG/NBD (Foodora)}
+\begin{center}
+            \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{cal_vs_holdout_fd.pdf}
+        \end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Modeling with BG/NBD (Foodpanda)}
+\begin{center}
+            \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{f_r_matrix_sg_customers_recent.pdf}
+        \end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Modeling with BG/NBD (Foodpanda)}
+\begin{center}
+            \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{pr_alive_matrix_sg_customers_recent.pdf}
+        \end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Modeling with BG/NBD (Foodpanda)}
+\begin{center}
+            \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{period_transactions_sg_customers_recent.pdf}
+        \end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Modeling with BG/NBD (Foodpanda)}
+\begin{center}
+            \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{cal_vs_holdout_sg_customers_recent.pdf}
+        \end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Modeling with BG/NBD + GammaGamma (Foodora)}
+\begin{center}
+            \begin{table}
+\begin{tabular}{l | c | c | c }
+Cohort Group & MAE & MAE/AVG & $R^2$ \\
+\hline \hline
+2015-06 & 17.558 & 0.605 & 0.648\\ 
+2015-07 & 10.418 & 0.700 & 0.614\\
+2015-08 & 9.092 & 0.747 & 0.506\\
+2015-09 & 9.475 & 0.769 & 0.474\\ 
+2015-10 & 9.291 & 0.780 & 0.563\\ 
+2015-11 & 8.482 & 0.791 & 0.531\\
+2015-12 & 8.099 & 0.838 & 0.475\\
+2016-01 & 8.468 & 0.832 & 0.526\\ 
+2016-02 & 8.963 & 0.858 & 0.433\\ 
+2016-03 & 9.311 & 0.858 & 0.424\\ 
+\end{tabular}
+\caption{MAE etc. for the Cohort Groups}
+\end{table}
+        \end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Churn Rate Accuracy Evaluation (Foodora)}
+\begin{center}
+            \begin{table}
+\begin{tabular}{l | c | c }
+ & Predicted: churn & Predicted: alive\\
+\hline \hline
+Actual: churn & 47236 & 9738\\ 
+Actual: alive & 19967 & 190034
+\end{tabular}
+\caption{Confusion Matrix for the Churn Rate Prediction}
+\end{table}
+        \end{center}
+\newtheorem{rmk}{Remark}        
+       
+\begin{rmk}
+    $F_1=0.928$ 
+\end{rmk}
+\end{frame}
+
+\begin{frame}
+\frametitle{Modeling with BG/NBD + GammaGamma (Foodpanda)}
+\begin{center}
+            \begin{table}
+\begin{tabular}{l | c | c | c }
+Cohort Group & MAE & MAE/AVG & $R^2$ \\
+\hline \hline
+2015-06 & 6.089 & 0.754 & 0.497\\ 
+2015-07 & 4.083 & 0.839 & 0.364\\
+2015-08 & 3.693 & 0.862 & 0.332\\
+2015-09 & 3.598 & 0.869 & 0.379\\ 
+2015-10 & 4.643 & 0.881 & 0.195\\ 
+2015-11 & 5.514 & 0.861 & 0.357\\
+2015-12 & 5.108 & 0.875 & 0.363\\
+2016-01 & 5.819 & 0.875 & 0.337\\ 
+2016-02 & 5.978 & 0.901 & 0.299\\ 
+2016-03 & 7.107 & 0.886 & 0.508\\ 
+\end{tabular}
+\caption{MAE etc. for the Cohort Groups}
+\end{table}
+        \end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Churn Rate Accuracy Evaluation (Foodpanda)}
+\begin{center}
+            \begin{table}
+\begin{tabular}{l | c | c }
+ & Predicted: churn & Predicted: alive\\
+\hline \hline
+Actual: churn & 97088 & 17235\\ 
+Actual: alive & 31233 & 241667
+\end{tabular}
+\caption{Confusion Matrix for the Churn Rate Prediction}
+\end{table}
+        \end{center}     
+       
+\begin{rmk}
+    $F_1=0.909$ 
+\end{rmk}
+\end{frame}
+
+\section{Further Work} % Since this is the start of a new section, our recurring outline will appear here.
+\begin{frame}
+\frametitle{Future Work}
+\begin{itemize}
+\item Model with more methodologies and make detailed comparisons
+\item Assess the impact of the calibration/holdout set ratio on model accuracy
+\item Understand better the statistical and behavioral differences between the two datasets
+\item etc
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+Questions?
+\end{frame}
+
+% Some of the ideas for the functions presented in this document came from posts to the ap-calculus group at the Math Forum at http://mathforum.org/kb/forum.jspa?forumID=63.
+
+\end{document}
+

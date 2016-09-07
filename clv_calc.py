@@ -246,7 +246,7 @@ def clv_classifier(data=recent_transaction_data,
                    observation_period_end='2016-08-01'):
     calibration_data = data[data['order_date'] < calibration_period_end]
 
-    holdout_data = data[data['order_date'] >= calibration_period_end]
+    holdout_data = data[(data['order_date'] >= calibration_period_end) & (data['order_date'] <= observation_period_end)]
 
     calibration_summary = summary_data_from_transaction_data(calibration_data,
                                                              'customer_id', 'order_date',

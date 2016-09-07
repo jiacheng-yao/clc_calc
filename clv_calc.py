@@ -263,15 +263,23 @@ def clv_classifier(data=recent_transaction_data,
     df['pred_clv'] = 0  # initialize the pred_clv column to zeros
     df['real_clv'] = 0
 
-    pred_customers_low_value = calibration_summary[calibration_summary['monetary_value'] < 7.27]
-    pred_customers_medium_value = calibration_summary[(calibration_summary['monetary_value'] <= 9.38) &
-                                                      (calibration_summary['monetary_value'] >= 7.27)]
-    pred_customers_high_value = calibration_summary[calibration_summary['monetary_value'] > 9.38]
+    threshold_1_percent = 0.33
+    threshold_2_percent = 0.66
 
-    real_customers_low_value = holdout_summary[holdout_summary['monetary_value'] < 7.27]
-    real_customers_medium_value = holdout_summary[(holdout_summary['monetary_value'] <= 9.38) &
-                                                      (holdout_summary['monetary_value'] >= 7.27)]
-    real_customers_high_value = holdout_summary[holdout_summary['monetary_value'] > 9.38]
+    class_threshold = recent_transaction_data['revenue'].quantile([threshold_1_percent, threshold_2_percent])
+
+    threshold_1 = class_threshold.loc[threshold_1_percent]
+    threshold_2 = class_threshold.loc[threshold_2_percent]
+
+    pred_customers_low_value = calibration_summary[calibration_summary['monetary_value'] < threshold_1]
+    pred_customers_medium_value = calibration_summary[(calibration_summary['monetary_value'] <= threshold_2) &
+                                                      (calibration_summary['monetary_value'] >= threshold_1)]
+    pred_customers_high_value = calibration_summary[calibration_summary['monetary_value'] > threshold_2]
+
+    real_customers_low_value = holdout_summary[holdout_summary['monetary_value'] < threshold_1]
+    real_customers_medium_value = holdout_summary[(holdout_summary['monetary_value'] <= threshold_2) &
+                                                      (holdout_summary['monetary_value'] >= threshold_1)]
+    real_customers_high_value = holdout_summary[holdout_summary['monetary_value'] > threshold_2]
 
     df.ix[pred_customers_low_value.index, 'pred_clv'] = 0
     df.ix[pred_customers_medium_value.index, 'pred_clv'] = 1
@@ -283,7 +291,7 @@ def clv_classifier(data=recent_transaction_data,
 
     cm = confusion_matrix(df['real_clv'], df['pred_clv'])
 
-    f1 = f1_score(df['real_clv'], df['pred_clv'])
+    f1 = f1_score(df['real_clv'], df['pred_clv'], average='micro')
 
     return cm, f1
 

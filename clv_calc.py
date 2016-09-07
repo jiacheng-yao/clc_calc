@@ -241,6 +241,53 @@ def clv_accuracy_calculator(prediction_model, data=recent_transaction_data,
     return mse, mse_div_avg, r2
 
 
+def clv_classifier(data=recent_transaction_data,
+                   calibration_period_end='2016-05-01',
+                   observation_period_end='2016-08-01'):
+    calibration_data = data[data['order_date'] < calibration_period_end]
+
+    holdout_data = data[data['order_date'] >= calibration_period_end]
+
+    calibration_summary = summary_data_from_transaction_data(calibration_data,
+                                                             'customer_id', 'order_date',
+                                                             'revenue', observation_period_end=calibration_period_end)
+
+    holdout_summary = summary_data_from_transaction_data(holdout_data,
+                                                         'customer_id', 'order_date',
+                                                         'revenue', observation_period_end=observation_period_end)
+
+    is_alive_index = list(set(calibration_summary['frequency'].index) | set(holdout_summary['frequency'].index))
+
+    df = pd.DataFrame(index=is_alive_index)
+
+    df['pred_clv'] = 0  # initialize the pred_clv column to zeros
+    df['real_clv'] = 0
+
+    pred_customers_low_value = calibration_summary[calibration_summary['monetary_value'] < 7.27]
+    pred_customers_medium_value = calibration_summary[(calibration_summary['monetary_value'] <= 9.38) &
+                                                      (calibration_summary['monetary_value'] >= 7.27)]
+    pred_customers_high_value = calibration_summary[calibration_summary['monetary_value'] > 9.38]
+
+    real_customers_low_value = holdout_summary[holdout_summary['monetary_value'] < 7.27]
+    real_customers_medium_value = holdout_summary[(holdout_summary['monetary_value'] <= 9.38) &
+                                                      (holdout_summary['monetary_value'] >= 7.27)]
+    real_customers_high_value = holdout_summary[holdout_summary['monetary_value'] > 9.38]
+
+    df.ix[pred_customers_low_value.index, 'pred_clv'] = 0
+    df.ix[pred_customers_medium_value.index, 'pred_clv'] = 1
+    df.ix[pred_customers_high_value.index, 'pred_clv'] = 2
+
+    df.ix[real_customers_low_value.index, 'real_clv'] = 0
+    df.ix[real_customers_medium_value.index, 'real_clv'] = 1
+    df.ix[real_customers_high_value.index, 'real_clv'] = 2
+
+    cm = confusion_matrix(df['real_clv'], df['pred_clv'])
+
+    f1 = f1_score(df['real_clv'], df['pred_clv'])
+
+    return cm, f1
+
+
 def clv_accuracy_calculator_per_cohort(prediction_model, data=recent_transaction_data, cohort='2015-06',
                                        discount_rate=0, calibration_period_end='2016-05-01',
                                        observation_period_end='2016-08-01'):

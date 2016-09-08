@@ -188,6 +188,81 @@ def ggf_analyser(summary, bgf=None):
     )
 
 
+def transaction_count_accuracy_calculator(prediction_model, data=recent_transaction_data,
+                            calibration_period_end='2016-05-01',
+                            observation_period_end='2016-08-01'):
+    calibration_data = data[data['order_date'] < calibration_period_end]
+
+    holdout_data = data[data['order_date'] >= calibration_period_end]
+
+    calibration_summary = summary_data_from_transaction_data(calibration_data,
+                                                             'customer_id', 'order_date',
+                                                             'revenue', observation_period_end=calibration_period_end)
+
+    holdout_summary = summary_data_from_transaction_data(holdout_data,
+                                                         'customer_id', 'order_date',
+                                                         'revenue', observation_period_end=observation_period_end)
+
+    if prediction_model is None:
+        prediction_model = ModifiedBetaGeoFitter(penalizer_coef=0.0)
+        prediction_model.fit(calibration_summary['frequency'],
+                             calibration_summary['recency'],
+                             calibration_summary['T'])
+
+    d_observation = datetime.strptime(observation_period_end, '%Y-%m-%d').date()
+    d_calibration = datetime.strptime(calibration_period_end, '%Y-%m-%d').date()
+
+    duration_holdout = (d_observation - d_calibration).days
+
+    df = pd.DataFrame(index=calibration_summary['frequency'].index)
+    df['pred_trans_count'] = 0  # initialize the pred_clv column to zeros
+    df['real_trans_count'] = 0
+
+    df['pred_trans_count'] =calibration_summary.apply(lambda r: prediction_model.conditional_expected_number_of_purchases_up_to_time(duration_holdout, r['frequency_cal'],
+                                                                               r['recency_cal'], r['T_cal']), axis=1)
+
+    df['real_trans_count'] = calibration_summary['frequency']
+
+    mse = mean_absolute_error(df['real_trans_count'], df['pred_trans_count'])
+    mse_div_avg = mean_absolute_error(df['real_trans_count'], df['pred_trans_count']) / df['real_trans_count'].mean()
+    r2 = r2_score(df['real_trans_count'], df['pred_trans_count'])
+
+    # return df['real_clv'], df['pred_clv']
+    return mse, mse_div_avg, r2
+
+
+def transaction_count_accuracy_calculator_per_cohort(prediction_model, data=recent_transaction_data, cohort='2015-06',
+                                                     calibration_period_end='2016-05-01',
+                                                     observation_period_end='2016-08-01'):
+    data.set_index('customer_id', inplace=True)
+    data['cohort_group'] = data.groupby(level=0)['order_date'].min().apply(lambda x: x.strftime('%Y-%m'))
+    data.reset_index(inplace=True)
+
+    data_in_cohort = data[data['cohort_group'] == cohort]
+
+    return transaction_count_accuracy_calculator(prediction_model, data_in_cohort,
+                                                 calibration_period_end,
+                                                 observation_period_end)
+
+
+def transaction_count_accuracy_calculator_cohort_comparison(data=recent_transaction_data):
+    cohort_start = date(2015, 6, 1)
+    cohort_end = date(2016, 3, 1)
+
+    dates = [dt.strftime('%Y-%m') for dt in rrule(MONTHLY, dtstart=cohort_start, until=cohort_end)]
+
+    mse_list = []
+    mse_div_avg_list = []
+    r2_list = []
+    for d in dates:
+        mse, mse_div_avg, r2 = transaction_count_accuracy_calculator_per_cohort(None, data, cohort=d)
+        mse_list.append(mse)
+        mse_div_avg_list.append(mse_div_avg)
+        r2_list.append(r2)
+
+    return mse_list, mse_div_avg_list, r2_list
+
+
 def clv_accuracy_calculator(prediction_model, data=recent_transaction_data,
                             discount_rate=0, calibration_period_end='2016-05-01',
                             observation_period_end='2016-08-01'):
@@ -457,7 +532,7 @@ def churning_accuracy_calculator_with_rf(data=recent_transaction_data, calibrati
     is_alive.ix[real_customers_not_alive_index, 'real'] = 0
 
     X_train, X_test, y_train, y_test =\
-        train_test_split(calibration_summary, is_alive['real'], test_size=0.33, random_state=42)
+        train_test_split(calibration_summary, is_alive['real'], test_size=0.1, random_state=42)
 
     clf = RandomForestClassifier(n_estimators=10)
     clf = clf.fit(X_train, y_train)

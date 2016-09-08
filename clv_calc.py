@@ -189,43 +189,34 @@ def ggf_analyser(summary, bgf=None):
 
 
 def transaction_count_accuracy_calculator(prediction_model, data=recent_transaction_data,
-                            calibration_period_end='2016-05-01',
-                            observation_period_end='2016-08-01'):
-    calibration_data = data[data['order_date'] < calibration_period_end]
-
-    holdout_data = data[data['order_date'] >= calibration_period_end]
-
-    calibration_summary = summary_data_from_transaction_data(calibration_data,
-                                                             'customer_id', 'order_date',
-                                                             'revenue', observation_period_end=calibration_period_end)
-
-    holdout_summary = summary_data_from_transaction_data(holdout_data,
-                                                         'customer_id', 'order_date',
-                                                         'revenue', observation_period_end=observation_period_end)
+                                          calibration_period_end='2016-05-01',
+                                          observation_period_end='2016-08-01'):
+    summary_cal_holdout = calibration_and_holdout_data(data, 'customer_id', 'order_date',
+                                                       calibration_period_end=calibration_period_end,
+                                                       observation_period_end=observation_period_end)
 
     if prediction_model is None:
         prediction_model = ModifiedBetaGeoFitter(penalizer_coef=0.0)
-        prediction_model.fit(calibration_summary['frequency'],
-                             calibration_summary['recency'],
-                             calibration_summary['T'])
+        prediction_model.fit(summary_cal_holdout['frequency_cal'],
+                             summary_cal_holdout['recency_cal'],
+                             summary_cal_holdout['T_cal'])
 
     d_observation = datetime.strptime(observation_period_end, '%Y-%m-%d').date()
     d_calibration = datetime.strptime(calibration_period_end, '%Y-%m-%d').date()
 
     duration_holdout = (d_observation - d_calibration).days
 
-    df = pd.DataFrame(index=calibration_summary['frequency'].index)
-    df['pred_trans_count'] = 0  # initialize the pred_clv column to zeros
-    df['real_trans_count'] = 0
+    summary_cal_holdout['pred_trans_count'] = summary_cal_holdout.\
+        apply(lambda r: prediction_model.conditional_expected_number_of_purchases_up_to_time(duration_holdout,
+                                                                                             r['frequency_cal'],
+                                                                                             r['recency_cal'],
+                                                                                             r['T_cal']), axis=1)
 
-    df['pred_trans_count'] =calibration_summary.apply(lambda r: prediction_model.conditional_expected_number_of_purchases_up_to_time(duration_holdout, r['frequency_cal'],
-                                                                               r['recency_cal'], r['T_cal']), axis=1)
-
-    df['real_trans_count'] = calibration_summary['frequency']
-
-    mse = mean_absolute_error(df['real_trans_count'], df['pred_trans_count'])
-    mse_div_avg = mean_absolute_error(df['real_trans_count'], df['pred_trans_count']) / df['real_trans_count'].mean()
-    r2 = r2_score(df['real_trans_count'], df['pred_trans_count'])
+    mse = mean_absolute_error(summary_cal_holdout['frequency_holdout'], summary_cal_holdout['pred_trans_count'])
+    mse_div_avg = mean_absolute_error(summary_cal_holdout['frequency_holdout'],
+                                      summary_cal_holdout['pred_trans_count']) / \
+                  summary_cal_holdout['frequency_holdout'].mean()
+    r2 = r2_score(summary_cal_holdout['frequency_holdout'], summary_cal_holdout['pred_trans_count'])
 
     # return df['real_clv'], df['pred_clv']
     return mse, mse_div_avg, r2

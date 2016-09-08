@@ -35,23 +35,23 @@ plot_source = "sg"
 
 if is_summary_available is False:
     # transaction_data = pd.read_csv(input_file, sep=';')
-    transaction_data = pd.read_excel(input_file, sep=';') # for FD dataset
+    transaction_data = pd.read_csv(input_file, sep=';') # for FD dataset
 
     recent_transaction_data = transaction_data[transaction_data['order_date'] > "2014-12-31"]
 
-    summary = summary_data_from_transaction_data(recent_transaction_data,
-                                                 'customer_id', 'order_date',
-                                                 'revenue', observation_period_end='2016-08-03')
+    # summary = summary_data_from_transaction_data(recent_transaction_data,
+    #                                              'customer_id', 'order_date',
+    #                                              'revenue', observation_period_end='2016-08-03')
+    #
+    # print summary.head()
 
-    print summary.head()
-
-    summary.to_csv(output_file, sep=';', encoding='utf-8')
+    # summary.to_csv(output_file, sep=';', encoding='utf-8')
 else:
     transaction_data = pd.read_csv(input_file, sep=';')
 
     recent_transaction_data = transaction_data[transaction_data['order_date'] > "2014-12-31"]
 
-    summary = pd.read_csv(output_file, sep=';')
+    # summary = pd.read_csv(output_file, sep=';')
 
 if plot_source is "sg":
     recent_transaction_data['order_date'] = recent_transaction_data.order_date.apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
@@ -96,14 +96,6 @@ def cal_vs_holdout_in_parallel(data=recent_transaction_data, calibration_period_
     # plot_calibration_purchases_vs_holdout_purchases(bgf_, summary_cal_holdout)
     # save("cal_vs_holdout_{}".format(calibration_period_end), ext="pdf", close=True, verbose=True)
 
-start_date = date(2016, 3, 20)
-end_date = date(2016, 4, 1)
-
-periods = [single_date.strftime("%Y-%m-%d") for single_date in daterange(start_date, end_date)]
-#
-# pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-# results = [pool.apply_async(func=cal_vs_holdout_in_parallel, args=(transaction_data, period)).get() for period in periods]
-
 #
 # Function run by worker processes
 #
@@ -126,29 +118,39 @@ def calculate(func, args):
 # Functions referenced by tasks
 #
 
-NUMBER_OF_PROCESSES = cpu_count()
-TASKS1 = [(cal_vs_holdout_in_parallel, (transaction_data, period)) for period in periods]
+def bgf_fit_in_multiprocessing():
+    start_date = date(2016, 3, 20)
+    end_date = date(2016, 4, 1)
 
-# Create queues
-task_queue = Queue()
-done_queue = Queue()
+    periods = [single_date.strftime("%Y-%m-%d") for single_date in daterange(start_date, end_date)]
+    #
+    # pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+    # results = [pool.apply_async(func=cal_vs_holdout_in_parallel, args=(transaction_data, period)).get() for period in periods]
 
-# Submit tasks
-for task in TASKS1:
-    task_queue.put(task)
 
-# Start worker processes
-for i in range(NUMBER_OF_PROCESSES):
-    Process(target=worker, args=(task_queue, done_queue)).start()
+    NUMBER_OF_PROCESSES = cpu_count()
+    TASKS1 = [(cal_vs_holdout_in_parallel, (transaction_data, period)) for period in periods]
 
-# Get and print results
-print 'Unordered results:'
-for i in range(len(TASKS1)):
-    print '\t', done_queue.get()
+    # Create queues
+    task_queue = Queue()
+    done_queue = Queue()
 
-# Tell child processes to stop
-for i in range(NUMBER_OF_PROCESSES):
-    task_queue.put('STOP')
+    # Submit tasks
+    for task in TASKS1:
+        task_queue.put(task)
+
+    # Start worker processes
+    for i in range(NUMBER_OF_PROCESSES):
+        Process(target=worker, args=(task_queue, done_queue)).start()
+
+    # Get and print results
+    print 'Unordered results:'
+    for i in range(len(TASKS1)):
+        print '\t', done_queue.get()
+
+    # Tell child processes to stop
+    for i in range(NUMBER_OF_PROCESSES):
+        task_queue.put('STOP')
 
 
 def ggf_analyser(summary, bgf=None):
@@ -460,5 +462,19 @@ def churning_accuracy_calculator_with_rf(data=recent_transaction_data, calibrati
     clf = RandomForestClassifier(n_estimators=10)
     clf = clf.fit(X_train, y_train)
 
-    clf.predict(X_test)
-    return mean_squared_error(y_test, clf.predict(X_test))
+    y_pred = clf.predict(X_test)
+
+    cm = confusion_matrix(y_test, y_pred)
+
+    f1 = f1_score(y_test, y_pred)
+
+    return cm, f1
+
+print "churn rate prediction begins..."
+
+cm, f1 = churning_accuracy_calculator_with_rf(recent_transaction_data, '2015-08-01')
+
+print "confusion matrix:"
+print cm
+
+print 'F1={}'.format(f1)

@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 from sklearn.metrics import mean_squared_error, mean_absolute_error, confusion_matrix, r2_score, f1_score
+from sklearn.cross_validation import train_test_split
+from sklearn.ensemble import RandomForestClassifier
 
 import matplotlib.pyplot as plt
 
@@ -263,8 +265,8 @@ def clv_classifier(data=recent_transaction_data,
     df['pred_clv'] = 0  # initialize the pred_clv column to zeros
     df['real_clv'] = 0
 
-    threshold_1_percent = 0.33
-    threshold_2_percent = 0.66
+    threshold_1_percent = 0.5
+    threshold_2_percent = 0.75
 
     class_threshold = recent_transaction_data['revenue'].quantile([threshold_1_percent, threshold_2_percent])
 
@@ -329,7 +331,7 @@ def clv_accuracy_calculator_cohort_comparison(data=recent_transaction_data):
 
 
 def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
-                                 calibration_period_end='2015-08-01', threshold=0.01):
+                                 calibration_period_end='2015-08-01', threshold=0.7):
     calibration_data = data[data['order_date'] < calibration_period_end]
 
     holdout_data = data[data['order_date'] >= calibration_period_end]
@@ -341,9 +343,6 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
     holdout_summary = summary_data_from_transaction_data(holdout_data,
                                                          'customer_id', 'order_date',
                                                          'revenue', observation_period_end='2016-08-03')
-
-    print calibration_summary.head()
-    print holdout_summary.head()
 
     calibration_summary.to_csv(calibration_output_file, sep=';', encoding='utf-8')
     holdout_summary.to_csv(holdout_output_file, sep=';', encoding='utf-8')
@@ -378,7 +377,7 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
 
     f1 = f1_score(is_alive['real'], is_alive['pred'])
 
-    return alive_prob, is_alive
+    return f1
 
 
 def churning_rate_tp_tn_cutoff_impact(alive_prob, is_alive):
@@ -402,3 +401,64 @@ def churning_rate_tp_tn_cutoff_impact(alive_prob, is_alive):
     # plt.axis([0, 1, 0, 1])
     # plt.show()
     save("tp_tn_percentage_threshold_{}".format(plot_source), ext="pdf", close=True, verbose=True)
+
+
+def calibration_period_length_impact(data=recent_transaction_data,
+                                     observation_period_start='2014-12-31', observation_period_end='2016-08-01'):
+    calibration_percentage = np.arange(0.1, 1, 0.1)
+
+    d_observation_start = datetime.strptime(observation_period_start, '%Y-%m-%d').date()
+    d_observation_end = datetime.strptime(observation_period_end, '%Y-%m-%d').date()
+
+    tdelta = (d_observation_end - d_observation_start).days
+
+    f1_list = []
+
+    for cal_percent in calibration_percentage:
+        d_calibration_end = datetime.strptime(observation_period_start, '%Y-%m-%d').date()\
+                            + timedelta(int(tdelta*cal_percent))
+        calibration_period_end = datetime.strftime(d_calibration_end, '%Y-%m-%d')
+
+        f1_result = churning_accuracy_calculator(None, data, calibration_period_end, 0.7)
+        f1_list.append(f1_result)
+
+        print "{}% finished".format(cal_percent*100)
+
+    plt.plot(calibration_percentage, f1_list)
+    plt.xlabel('Calibration Period Percentage')
+    plt.ylabel(r'$F_1$')
+    plt.title('Impact of Calibration Period Length on Churn Rate Prediction Accuracy')
+    # plt.axis([0, 1, 0, 1])
+    # plt.show()
+    save("cal_percentage_churnrate_f1_impact_{}".format(plot_source), ext="pdf", close=True, verbose=True)
+
+
+def churning_accuracy_calculator_with_rf(data=recent_transaction_data, calibration_period_end='2015-08-01'):
+    calibration_data = data[data['order_date'] < calibration_period_end]
+
+    holdout_data = data[data['order_date'] >= calibration_period_end]
+
+    calibration_summary = summary_data_from_transaction_data(calibration_data,
+                                                             'customer_id', 'order_date',
+                                                             'revenue', observation_period_end=calibration_period_end)
+
+    holdout_summary = summary_data_from_transaction_data(holdout_data,
+                                                         'customer_id', 'order_date',
+                                                         'revenue', observation_period_end='2016-08-03')
+
+    real_customers_not_alive_index = list(
+        set(calibration_summary['frequency'].index) - set(holdout_summary['frequency'].index))
+
+    is_alive = pd.DataFrame(index=calibration_summary['frequency'].index)
+    is_alive['real'] = 1
+
+    is_alive.ix[real_customers_not_alive_index, 'real'] = 0
+
+    X_train, X_test, y_train, y_test =\
+        train_test_split(calibration_summary, is_alive['real'], test_size=0.33, random_state=42)
+
+    clf = RandomForestClassifier(n_estimators=10)
+    clf = clf.fit(X_train, y_train)
+
+    clf.predict(X_test)
+    return mean_squared_error(y_test, clf.predict(X_test))

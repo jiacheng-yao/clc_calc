@@ -212,7 +212,7 @@ def transaction_count_accuracy_calculator(prediction_model, data=recent_transact
                                                                                              r['recency_cal'],
                                                                                              r['T_cal']), axis=1)
 
-    summary_cal_holdout['pred_trans_count'] = summary_cal_holdout['pred_trans_count'].apply(pd.to_numeric)
+    summary_cal_holdout['pred_trans_count'] = summary_cal_holdout['pred_trans_count'].astype(int)
 
     mse = mean_absolute_error(summary_cal_holdout['frequency_holdout'], summary_cal_holdout['pred_trans_count'])
     mse_div_avg = mean_absolute_error(summary_cal_holdout['frequency_holdout'],

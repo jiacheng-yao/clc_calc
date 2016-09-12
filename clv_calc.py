@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
-from sklearn.metrics import mean_squared_error, mean_absolute_error, confusion_matrix, r2_score, f1_score
-from sklearn.cross_validation import train_test_split
+from sklearn.metrics import mean_squared_error, mean_absolute_error, confusion_matrix, r2_score, f1_score, roc_curve
+from sklearn.cross_validation import train_test_split, cross_val_score
 from sklearn.ensemble import RandomForestClassifier
 
 import matplotlib.pyplot as plt
@@ -527,8 +527,42 @@ def churning_accuracy_calculator_with_rf(data=recent_transaction_data, calibrati
     X_train, X_test, y_train, y_test =\
         train_test_split(calibration_summary, is_alive['real'], test_size=0.1, random_state=42)
 
-    clf = RandomForestClassifier(n_estimators=10)
+    clf = RandomForestClassifier(n_estimators=10, max_depth=3)
     clf = clf.fit(X_train, y_train)
+
+    # find the optimal parameter for the classifier - in this case, number of estimators
+    # n_estimator_range = range(1, 100)
+    # n_scores = []
+    # for n in n_estimator_range:
+    #     clf = RandomForestClassifier(n_estimators=n)
+    #     scores = cross_val_score(clf, calibration_summary, is_alive['real'], cv=10, scoring='accuracy')
+    #     n_scores.append(scores.mean())
+    # print n_scores
+    # % matplotlib inline
+    # plt.plot(n_estimator_range, n_scores)
+
+    # find the optimal parameter for the classifier - in this case, max tree depth
+
+    # n_depth_range = range(1, 15)
+    # n_scores = []
+    # for depth in n_depth_range:
+    #     clf = RandomForestClassifier(n_estimators=10, max_depth=depth)
+    #     scores = cross_val_score(clf, calibration_summary, is_alive['real'], cv=10, scoring='f1')
+    #     print scores.mean()
+    #     n_scores.append(scores.mean())
+    # print n_scores
+    #
+    # plt.plot(n_depth_range, n_scores)
+    # plt.xlabel('Max Tree Depth')
+    # plt.ylabel(r'$F_1$')
+    # plt.title('Impact of Tree Depth on Churn Rate Prediction Accuracy')
+    # # plt.axis([0, 1, 0, 1])
+    # # plt.show()
+    # save("tree_depth_avg_churnrate_f1_impact_{}".format(plot_source), ext="pdf", close=True, verbose=True)
+
+    # draw roc curve for the classifier
+    # fpr, tpr, thresholds = roc_curve(y_test, clf.predict_proba(X_test)[:, 1], pos_label=1)
+    # plt.plot(fpr, tpr)
 
     y_pred = clf.predict(X_test)
 

@@ -7,6 +7,8 @@ from sklearn.grid_search import GridSearchCV, RandomizedSearchCV
 
 import matplotlib.pyplot as plt
 
+import xgboost as xgb
+
 from lifetimes.utils import summary_data_from_transaction_data, calibration_and_holdout_data, customer_lifetime_value
 from lifetimes import BetaGeoFitter, GammaGammaFitter, ModifiedBetaGeoFitter
 from lifetimes.plotting import plot_frequency_recency_matrix, plot_probability_alive_matrix, \
@@ -528,7 +530,7 @@ def churning_accuracy_calculator_with_rf(data=recent_transaction_data, calibrati
     X_train, X_test, y_train, y_test =\
         train_test_split(calibration_summary, is_alive['real'], test_size=0.1, random_state=42)
 
-    clf = RandomForestClassifier(n_estimators=10, max_depth=3)
+    clf = RandomForestClassifier(n_estimators=31, max_depth=4)
     clf = clf.fit(X_train, y_train)
 
     # find the optimal parameter for the classifier - in this case, number of estimators
@@ -594,8 +596,66 @@ def random_forest_optimizer(X, y, scoring='f1', n_iter=10):
         rand.fit(X, y)
         best_scores.append(rand.best_score_)
         best_parameters.append(rand.best_params_)
-    print best_scores
-    print best_parameters
+
+    max_score = max(best_scores)
+    max_index = best_scores.index(max_score)
+    optimal_parameter = best_parameters[max_index]
+
+    return optimal_parameter
+
+
+def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, calibration_period_end='2015-08-01'):
+    calibration_data = data[data['order_date'] < calibration_period_end]
+
+    holdout_data = data[data['order_date'] >= calibration_period_end]
+
+    calibration_summary = summary_data_from_transaction_data(calibration_data,
+                                                             'customer_id', 'order_date',
+                                                             'revenue', observation_period_end=calibration_period_end)
+
+    holdout_summary = summary_data_from_transaction_data(holdout_data,
+                                                         'customer_id', 'order_date',
+                                                         'revenue', observation_period_end='2016-08-03')
+
+    real_customers_not_alive_index = list(
+        set(calibration_summary['frequency'].index) - set(holdout_summary['frequency'].index))
+
+    is_alive = pd.DataFrame(index=calibration_summary['frequency'].index)
+    is_alive['real'] = 1
+
+    is_alive.ix[real_customers_not_alive_index, 'real'] = 0
+
+    X_np_array = calibration_summary.as_matrix(columns=calibration_summary.columns)
+    y_np_array = is_alive['real'].as_matrix()
+
+    X_train, X_test, y_train, y_test = \
+        train_test_split(X_np_array, y_np_array, test_size=0.3, random_state=42)
+
+    dtrain = xgb.DMatrix(X_train, label=y_train)
+    dtest = xgb.DMatrix(X_test, label=y_test)
+
+    dtrain.save_binary("train.buffer_{}".format(plot_source))
+    dtest.save_binary("test.buffer_{}".format(plot_source))
+
+    param = {'bst:max_depth': 2, 'bst:eta': 1, 'silent': 1, 'objective': 'binary:logistic'}
+    param['nthread'] = 4
+    param['eval_metric'] = 'auc'
+
+    plst = param.items()
+    evallist = [(dtest, 'eval'), (dtrain, 'train')]
+
+    num_round = 30
+    bst = xgb.train(plst, dtrain, num_round, evallist, early_stopping_rounds=10)
+
+    preds = bst.predict(dtest)
+    labels = dtest.get_label()
+
+    bst.save_model('xgb_{}.model'.format(plot_source))
+    # dump model
+    bst.dump_model('dump.raw.txt')
+    # dump model with feature map
+    bst.dump_model('dump.raw_{}.txt'.format(plot_source), 'featmap_{}.txt'.format(plot_source))
+
 
 print "churn rate prediction begins..."
 

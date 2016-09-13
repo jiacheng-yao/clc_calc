@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.metrics import mean_squared_error, mean_absolute_error, confusion_matrix, r2_score, f1_score, roc_curve
+from sklearn.metrics import mean_squared_error, mean_absolute_error, confusion_matrix, r2_score, f1_score, roc_curve, auc
 from sklearn.cross_validation import train_test_split, cross_val_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.grid_search import GridSearchCV, RandomizedSearchCV
@@ -574,10 +574,10 @@ def churning_accuracy_calculator_with_rf(data=recent_transaction_data, calibrati
     y_pred = clf.predict(X_test)
 
     cm = confusion_matrix(y_test, y_pred)
-
     f1 = f1_score(y_test, y_pred)
+    fpr, tpr, thresholds = roc_curve(y_test, clf.predict_proba(X_test)[:, 1], pos_label=1)
 
-    return cm, f1
+    return cm, f1, auc(fpr, tpr)
 
 
 def random_forest_optimizer(X, y, scoring='f1', n_iter=10):

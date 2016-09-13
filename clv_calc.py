@@ -404,7 +404,7 @@ def clv_accuracy_calculator_cohort_comparison(data=recent_transaction_data):
 
 
 def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
-                                 calibration_period_end='2015-08-01', threshold=0.7):
+                                 calibration_period_end='2015-08-01', threshold=0.65):
     calibration_data = data[data['order_date'] < calibration_period_end]
 
     holdout_data = data[data['order_date'] >= calibration_period_end]
@@ -435,10 +435,9 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
     # real_customers_alive = customers[customers['count'] > 0]
     pred_customers_not_alive = alive_prob[alive_prob < threshold]
 
-    is_alive_index = list(set(calibration_summary['frequency'].index) | set(holdout_summary['frequency'].index))
     real_customers_not_alive_index = list(set(calibration_summary['frequency'].index) - set(holdout_summary['frequency'].index))
 
-    is_alive = pd.DataFrame(index=is_alive_index)
+    is_alive = pd.DataFrame(index=calibration_summary['frequency'].index)
     is_alive['real'] = 1
     is_alive['pred'] = 1
 
@@ -456,7 +455,7 @@ def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
 def churning_rate_tp_tn_cutoff_impact(alive_prob, is_alive):
     t = np.arange(0, 1.01, 0.01)
 
-    tp_tn_list = []
+    f1_list = []
     for i in t:
         threshold = i
         pred_customers_not_alive = alive_prob[alive_prob < threshold]
@@ -464,17 +463,22 @@ def churning_rate_tp_tn_cutoff_impact(alive_prob, is_alive):
         is_alive['pred'] = 1
         is_alive.ix[pred_customers_not_alive.index, 'pred'] = 0
 
-        cm = confusion_matrix(is_alive['real'], is_alive['pred'])
-        tp_tn_list.append(float(cm[0][0] + cm[1][1]) / float(len(is_alive.index)))
+        f1 = f1_score(is_alive['real'], is_alive['pred'])
+        f1_list.append(f1)
 
-    plt.plot(t, tp_tn_list)
+    plt.plot(t, f1_list)
     plt.xlabel('Cutoff Threshold for Churn Rate')
-    plt.ylabel('Percentage of TP+TN')
+    plt.ylabel(r'$F_1$')
     plt.title('Impact of Cutoff Threshold on Churn Rate Prediction Accuracy')
     # plt.axis([0, 1, 0, 1])
     # plt.show()
     save("tp_tn_percentage_threshold_{}".format(plot_source), ext="pdf", close=True, verbose=True)
 
+    max_score = max(f1_list)
+    max_index = f1_list.index(max_score)
+    optimal_threshold = t[max_index]
+
+    return optimal_threshold
 
 def calibration_period_length_impact(data=recent_transaction_data,
                                      observation_period_start='2014-12-31', observation_period_end='2016-08-01'):
@@ -637,7 +641,7 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
     dtrain.save_binary("train.buffer_{}".format(plot_source))
     dtest.save_binary("test.buffer_{}".format(plot_source))
 
-    param = {'bst:max_depth': 2, 'bst:eta': 1, 'silent': 1, 'objective': 'binary:logistic'}
+    param = {'bst:max_depth': 4, 'bst:eta': 1, 'silent': 1, 'objective': 'binary:logistic'}
     param['nthread'] = 4
     param['eval_metric'] = 'auc'
 

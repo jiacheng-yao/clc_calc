@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.metrics import mean_squared_error, mean_absolute_error, confusion_matrix, r2_score, f1_score, roc_curve
 from sklearn.cross_validation import train_test_split, cross_val_score
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.grid_search import GridSearchCV, RandomizedSearchCV
 
 import matplotlib.pyplot as plt
 
@@ -571,6 +572,30 @@ def churning_accuracy_calculator_with_rf(data=recent_transaction_data, calibrati
     f1 = f1_score(y_test, y_pred)
 
     return cm, f1
+
+
+def random_forest_optimizer(X, y, scoring='f1', n_iter=10):
+    n_estimators_range = list(range(1, 51))
+    max_depth_range = list(range(1, 16))
+
+    # create a parameter grid: map the parameter names to the values that should be searched
+    param_dist = dict(n_estimators=n_estimators_range, max_depth=max_depth_range)
+    # print(param_grid)
+
+    rfc = RandomForestClassifier()
+
+    # grid = GridSearchCV(rfc, param_grid, cv=10, scoring=scoring, n_jobs=-1)
+    # grid.fit(X, y)
+
+    best_scores = []
+    best_parameters = []
+    for _ in range(20):
+        rand = RandomizedSearchCV(rfc, param_dist, cv=10, scoring=scoring, n_iter=n_iter, n_jobs=-1)
+        rand.fit(X, y)
+        best_scores.append(rand.best_score_)
+        best_parameters.append(rand.best_params_)
+    print best_scores
+    print best_parameters
 
 print "churn rate prediction begins..."
 

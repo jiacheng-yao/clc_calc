@@ -604,7 +604,7 @@ def random_forest_optimizer(X, y, scoring='f1', n_iter=10):
     return optimal_parameter
 
 
-def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, calibration_period_end='2015-08-01'):
+def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, calibration_period_end='2016-03-01'):
     calibration_data = data[data['order_date'] < calibration_period_end]
 
     holdout_data = data[data['order_date'] >= calibration_period_end]
@@ -647,8 +647,12 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
     num_round = 30
     bst = xgb.train(plst, dtrain, num_round, evallist, early_stopping_rounds=10)
 
-    preds = bst.predict(dtest)
+    preds = bst.predict(dtest, ntree_limit=bst.best_ntree_limit)
     labels = dtest.get_label()
+
+    xgb.plot_importance(bst)
+
+    print ('error=%f' % (sum(1 for i in range(len(preds)) if int(preds[i] > 0.5) != labels[i]) / float(len(preds))))
 
     bst.save_model('xgb_{}.model'.format(plot_source))
     # dump model

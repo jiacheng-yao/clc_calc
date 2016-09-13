@@ -643,7 +643,7 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
 
     param = {'bst:max_depth': 4, 'bst:eta': 1, 'silent': 1, 'objective': 'binary:logistic'}
     param['nthread'] = 4
-    param['eval_metric'] = 'auc'
+    param['eval_metric'] = ['auc', 'map']
 
     plst = param.items()
     evallist = [(dtest, 'eval'), (dtrain, 'train')]

@@ -643,7 +643,8 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
 
     param = {'bst:max_depth': 4, 'bst:eta': 1, 'silent': 1, 'objective': 'binary:logistic'}
     param['nthread'] = 4
-    param['eval_metric'] = ['auc', 'map']
+    param['eval_metric'] = 'auc'
+    # param['eval_metric'] = ['auc', 'map']
 
     plst = param.items()
     evallist = [(dtest, 'eval'), (dtrain, 'train')]
@@ -654,15 +655,18 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
     preds = bst.predict(dtest, ntree_limit=bst.best_ntree_limit)
     labels = dtest.get_label()
 
-    xgb.plot_importance(bst)
-
     print ('error=%f' % (sum(1 for i in range(len(preds)) if int(preds[i] > 0.5) != labels[i]) / float(len(preds))))
+    preds_label = [int(i > 0.5) for i in preds]
+
+    xgb.plot_importance(bst)
 
     bst.save_model('xgb_{}.model'.format(plot_source))
     # dump model
     bst.dump_model('dump.raw.txt')
     # dump model with feature map
     bst.dump_model('dump.raw_{}.txt'.format(plot_source), 'featmap_{}.txt'.format(plot_source))
+
+    return f1_score(labels, preds_label)
 
 
 print "churn rate prediction begins..."

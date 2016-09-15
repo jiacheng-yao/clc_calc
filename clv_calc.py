@@ -858,6 +858,9 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
 
     xgboost_fit(xgb4, X_train, X_test, y_train, y_test, predictors)
 
+    y_test_predictions = xgb4.predict(X_test[predictors])
+    f1 = f1_score(y_test, y_test_predictions)
+
 
 def xgboost_fit(alg, X_train, X_test, y_train, y_test,
                 predictors, useTrainCV=True, cv_folds=5, early_stopping_rounds=50):

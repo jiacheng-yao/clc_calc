@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
-from sklearn.metrics import mean_squared_error, mean_absolute_error, confusion_matrix, r2_score, f1_score, roc_curve, auc
+from sklearn.metrics import mean_squared_error, mean_absolute_error, \
+    confusion_matrix, r2_score, f1_score, roc_curve, auc, accuracy_score, roc_auc_score
 from sklearn.cross_validation import train_test_split, cross_val_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.grid_search import GridSearchCV, RandomizedSearchCV
@@ -8,6 +9,7 @@ from sklearn.grid_search import GridSearchCV, RandomizedSearchCV
 import matplotlib.pyplot as plt
 
 import xgboost as xgb
+from xgboost.sklearn import XGBClassifier
 
 from lifetimes.utils import summary_data_from_transaction_data, calibration_and_holdout_data, customer_lifetime_value
 from lifetimes import BetaGeoFitter, GammaGammaFitter, ModifiedBetaGeoFitter
@@ -629,45 +631,263 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
 
     is_alive.ix[real_customers_not_alive_index, 'real'] = 0
 
-    X_np_array = calibration_summary.as_matrix(columns=calibration_summary.columns)
-    y_np_array = is_alive['real'].as_matrix()
+    predictors = [x for x in calibration_summary.columns if x not in ['customer_id', 'monetary_value']]
 
     X_train, X_test, y_train, y_test = \
-        train_test_split(X_np_array, y_np_array, test_size=0.3, random_state=42)
+        train_test_split(calibration_summary, is_alive['real'], test_size=0.3, random_state=42)
 
-    dtrain = xgb.DMatrix(X_train, label=y_train)
-    dtest = xgb.DMatrix(X_test, label=y_test)
+    xgb1 = XGBClassifier(
+        learning_rate=0.1,
+        n_estimators=500,
+        max_depth=5,
+        min_child_weight=1,
+        gamma=0,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective='binary:logistic',
+        nthread=4,
+        scale_pos_weight=1,
+        seed=27)
 
-    dtrain.save_binary("train.buffer_{}".format(plot_source))
-    dtest.save_binary("test.buffer_{}".format(plot_source))
+    xgboost_fit(xgb1, X_train, X_test, y_train, y_test, predictors)
 
-    param = {'bst:max_depth': 4, 'bst:eta': 1, 'silent': 1, 'objective': 'binary:logistic'}
-    param['nthread'] = 4
-    param['eval_metric'] = 'auc'
-    # param['eval_metric'] = ['auc', 'map']
+    # test-auc reachs optimum when n_estimators = 140
 
-    plst = param.items()
-    evallist = [(dtest, 'eval'), (dtrain, 'train')]
+    # Grid seach on max_depth and min_child_weight
+    # Choose all predictors except target & IDcols
+    param_test1 = {
+        'max_depth': range(3, 10, 2),
+        'min_child_weight': range(1, 6, 2)
+    }
+    gsearch1 = GridSearchCV(estimator=XGBClassifier(learning_rate=0.1, n_estimators=140, max_depth=5,
+                                                    min_child_weight=1, gamma=0, subsample=0.8, colsample_bytree=0.8,
+                                                    objective='binary:logistic', nthread=4, scale_pos_weight=1,
+                                                    seed=27),
+                            param_grid=param_test1, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+    gsearch1.fit(X_train[predictors], y_train)
+    # gsearch1.grid_scores_, gsearch1.best_params_, gsearch1.best_score_
 
-    num_round = 30
-    bst = xgb.train(plst, dtrain, num_round, evallist, early_stopping_rounds=10)
+    # test-auc reachs optimum when {'max_depth': 3, 'min_child_weight': 5}
 
-    preds = bst.predict(dtest, ntree_limit=bst.best_ntree_limit)
-    labels = dtest.get_label()
+    # Grid seach on max_depth and min_child_weight
+    # Choose all predictors except target & IDcols
+    param_test2 = {
+        'max_depth': [2, 3, 4],
+        'min_child_weight': [4, 5, 6]
+    }
+    gsearch2 = GridSearchCV(estimator=XGBClassifier(learning_rate=0.1, n_estimators=140, max_depth=5,
+                                                    min_child_weight=2, gamma=0, subsample=0.8, colsample_bytree=0.8,
+                                                    objective='binary:logistic', nthread=4, scale_pos_weight=1,
+                                                    seed=27),
+                            param_grid=param_test2, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+    gsearch2.fit(X_train[predictors], y_train)
+    # gsearch2.grid_scores_, gsearch2.best_params_, gsearch2.best_score_
 
-    print ('error=%f' % (sum(1 for i in range(len(preds)) if int(preds[i] > 0.5) != labels[i]) / float(len(preds))))
-    preds_label = [int(i > 0.5) for i in preds]
+    # test-auc reachs optimum when {'max_depth': 4, 'min_child_weight': 4}
 
-    xgb.plot_importance(bst)
+    # Grid seach on min_child_weight
+    # Choose all predictors except target & IDcols
+    param_test2b = {
+        'min_child_weight': [2, 3, 4, 5, 6]
+    }
+    gsearch2b = GridSearchCV(estimator=XGBClassifier(learning_rate=0.1, n_estimators=140, max_depth=4,
+                                                     min_child_weight=2, gamma=0, subsample=0.8, colsample_bytree=0.8,
+                                                     objective='binary:logistic', nthread=4, scale_pos_weight=1,
+                                                     seed=27),
+                             param_grid=param_test2b, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+    gsearch2b.fit(X_train[predictors], y_train)
+    # gsearch2b.grid_scores_, gsearch2b.best_params_, gsearch2b.best_score_
 
-    bst.save_model('xgb_{}.model'.format(plot_source))
-    # dump model
-    bst.dump_model('dump.raw.txt')
-    # dump model with feature map
-    bst.dump_model('dump.raw_{}.txt'.format(plot_source), 'featmap_{}.txt'.format(plot_source))
+    # test-auc reachs optimum when {'min_child_weight': 3}
 
-    return f1_score(labels, preds_label)
+    # Grid seach on gamma
+    # Choose all predictors except target & IDcols
+    param_test3 = {
+        'gamma': [i / 10.0 for i in range(0, 5)]
+    }
+    gsearch3 = GridSearchCV(estimator=XGBClassifier(learning_rate=0.1, n_estimators=140, max_depth=4,
+                                                    min_child_weight=3, gamma=0, subsample=0.8, colsample_bytree=0.8,
+                                                    objective='binary:logistic', nthread=4, scale_pos_weight=1,
+                                                    seed=27),
+                            param_grid=param_test3, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+    gsearch3.fit(X_train[predictors], y_train)
+    # gsearch3.grid_scores_, gsearch3.best_params_, gsearch3.best_score_
 
+    # test-auc reachs optimum when {'gamma': 0.0}
+
+    xgb2 = XGBClassifier(
+        learning_rate=0.1,
+        n_estimators=500,
+        max_depth=4,
+        min_child_weight=3,
+        gamma=0,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective='binary:logistic',
+        nthread=4,
+        scale_pos_weight=1,
+        seed=27)
+    xgboost_fit(xgb2, X_train, X_test, y_train, y_test, predictors)
+
+    # test-auc reachs optimum when n_estimators = 253
+
+    # Grid seach on subsample and max_features
+    # Choose all predictors except target & IDcols
+    param_test4 = {
+        'subsample': [i / 10.0 for i in range(6, 10)],
+        'colsample_bytree': [i / 10.0 for i in range(6, 10)]
+    }
+    gsearch4 = GridSearchCV(estimator=XGBClassifier(learning_rate=0.1, n_estimators=253, max_depth=4,
+                                                    min_child_weight=3, gamma=0, subsample=0.8, colsample_bytree=0.8,
+                                                    objective='binary:logistic', nthread=4, scale_pos_weight=1,
+                                                    seed=27),
+                            param_grid=param_test4, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+    gsearch4.fit(X_train[predictors], y_train)
+    # gsearch4.grid_scores_, gsearch4.best_params_, gsearch4.best_score_
+
+    # test-auc reachs optimum when {'colsample_bytree': 0.7, 'subsample': 0.9}
+
+    # Grid seach on subsample
+    # Choose all predictors except target & IDcols
+    param_test4a = {
+        'subsample': [i / 10.0 for i in range(9, 11)]
+    }
+    gsearch4a = GridSearchCV(estimator=XGBClassifier(learning_rate=0.1, n_estimators=253, max_depth=4,
+                                                    min_child_weight=3, gamma=0, subsample=0.8, colsample_bytree=0.7,
+                                                    objective='binary:logistic', nthread=4, scale_pos_weight=1,
+                                                    seed=27),
+                            param_grid=param_test4a, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+    gsearch4a.fit(X_train[predictors], y_train)
+    # gsearch4a.grid_scores_, gsearch4a.best_params_, gsearch4a.best_score_
+
+    # test-auc reachs optimum when {'subsample': 0.9}
+
+    # Grid seach on subsample and max_features
+    # Choose all predictors except target & IDcols
+    param_test5 = {
+        'subsample': [i / 100.0 for i in range(85, 100, 5)],
+        'colsample_bytree': [i / 100.0 for i in range(65, 80, 5)]
+    }
+    gsearch5 = GridSearchCV(estimator=XGBClassifier(learning_rate=0.1, n_estimators=253, max_depth=4,
+                                                    min_child_weight=3, gamma=0, subsample=0.8, colsample_bytree=0.8,
+                                                    objective='binary:logistic', nthread=4, scale_pos_weight=1,
+                                                    seed=27),
+                            param_grid=param_test5, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+    gsearch5.fit(X_train[predictors], y_train)
+    # gsearch5.grid_scores_, gsearch5.best_params_, gsearch5.best_score_
+
+    # test-auc reachs optimum when {'colsample_bytree': 0.7, 'subsample': 0.9}
+
+    # Grid seach on reg_alpha
+    # Choose all predictors except target & IDcols
+    param_test6 = {
+        'reg_alpha': [1e-5, 1e-2, 0.1, 1, 10, 100]
+    }
+    gsearch6 = GridSearchCV(estimator=XGBClassifier(learning_rate=0.1, n_estimators=253, max_depth=4,
+                                                    min_child_weight=3, gamma=0, subsample=0.9, colsample_bytree=0.7,
+                                                    objective='binary:logistic', nthread=4, scale_pos_weight=1,
+                                                    seed=27),
+                            param_grid=param_test6, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+    gsearch6.fit(X_train[predictors], y_train)
+    # gsearch6.grid_scores_, gsearch6.best_params_, gsearch6.best_score_
+
+    # test-auc reachs optimum when {'reg_alpha': 10}
+
+    # Grid seach on reg_alpha
+    # Choose all predictors except target & IDcols
+    param_test7 = {
+        'reg_alpha': [0, 2.5, 5, 10, 50]
+    }
+    gsearch7 = GridSearchCV(estimator=XGBClassifier(learning_rate=0.1, n_estimators=253, max_depth=4,
+                                                    min_child_weight=3, gamma=0, subsample=0.9, colsample_bytree=0.7,
+                                                    objective='binary:logistic', nthread=4, scale_pos_weight=1,
+                                                    seed=27),
+                            param_grid=param_test7, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+    gsearch7.fit(X_train[predictors], y_train)
+    # gsearch7.grid_scores_, gsearch7.best_params_, gsearch7.best_score_
+
+    # test-auc reachs optimum when {'reg_alpha': 5}
+
+    xgb3 = XGBClassifier(
+        learning_rate=0.1,
+        n_estimators=500,
+        max_depth=4,
+        min_child_weight=3,
+        gamma=0,
+        subsample=0.9,
+        colsample_bytree=0.7,
+        reg_alpha=5,
+        objective='binary:logistic',
+        nthread=4,
+        scale_pos_weight=1,
+        seed=27)
+
+    xgboost_fit(xgb3, X_train, X_test, y_train, y_test, predictors)
+
+    # test-auc reachs optimum when n_estimators = 246
+
+    xgb4 = XGBClassifier(
+        learning_rate=0.01,
+        n_estimators=5000,
+        max_depth=4,
+        min_child_weight=3,
+        gamma=0,
+        subsample=0.9,
+        colsample_bytree=0.7,
+        reg_alpha=5,
+        objective='binary:logistic',
+        nthread=4,
+        scale_pos_weight=1,
+        seed=27)
+
+    xgboost_fit(xgb4, X_train, X_test, y_train, y_test, predictors)
+
+    xgb_final = XGBClassifier(
+        learning_rate=0.01,
+        n_estimators=1846,
+        max_depth=4,
+        min_child_weight=3,
+        gamma=0,
+        subsample=0.9,
+        colsample_bytree=0.7,
+        reg_alpha=5,
+        objective='binary:logistic',
+        nthread=4,
+        scale_pos_weight=1,
+        seed=27)
+
+    xgboost_fit(xgb4, X_train, X_test, y_train, y_test, predictors)
+
+
+def xgboost_fit(alg, X_train, X_test, y_train, y_test,
+                predictors, useTrainCV=True, cv_folds=5, early_stopping_rounds=50):
+    if useTrainCV:
+        xgb_param = alg.get_xgb_params()
+        xgtrain = xgb.DMatrix(X_train[predictors].values, label=y_train.values)
+        xgtest = xgb.DMatrix(X_test[predictors].values)
+        cvresult = xgb.cv(xgb_param, xgtrain, num_boost_round=alg.get_params()['n_estimators'], nfold=cv_folds,
+                          metrics='auc', early_stopping_rounds=early_stopping_rounds, verbose_eval=False)
+        alg.set_params(n_estimators=cvresult.shape[0])
+
+    # Fit the algorithm on the data
+    alg.fit(X_train[predictors], y_train, eval_metric='auc')
+
+    # Predict training set:
+    dtrain_predictions = alg.predict(X_train[predictors])
+    dtrain_predprob = alg.predict_proba(X_train[predictors])[:, 1]
+
+    # Print model report:
+    print "\nModel Report"
+    print "Accuracy : %.4g" % accuracy_score(y_train.values, dtrain_predictions)
+    print "AUC Score (Train): %f" % roc_auc_score(y_train, dtrain_predprob)
+
+    #     Predict on testing data:
+    dtest_predprob = alg.predict_proba(X_test[predictors])[:, 1]
+    print 'AUC Score (Test): %f' % roc_auc_score(y_test, dtest_predprob)
+
+    feat_imp = pd.Series(alg.booster().get_fscore()).sort_values(ascending=False)
+    feat_imp.plot(kind='bar', title='Feature Importances')
+    plt.ylabel('Feature Importance Score')
 
 print "churn rate prediction begins..."
 

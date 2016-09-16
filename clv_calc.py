@@ -631,7 +631,7 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
 
     is_alive.ix[real_customers_not_alive_index, 'real'] = 0
 
-    predictors = [x for x in calibration_summary.columns if x not in ['customer_id', 'monetary_value']]
+    predictors = [x for x in calibration_summary.columns if x not in ['customer_id']]
 
     X_train, X_test, y_train, y_test = \
         train_test_split(calibration_summary, is_alive['real'], test_size=0.3, random_state=42)
@@ -651,7 +651,7 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
 
     xgboost_fit(xgb1, X_train, X_test, y_train, y_test, predictors)
 
-    # test-auc reachs optimum when n_estimators = 140
+    # test-auc reachs optimum when n_estimators = 140/255
 
     # Grid seach on max_depth and min_child_weight
     # Choose all predictors except target & IDcols
@@ -663,7 +663,7 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
                                                     min_child_weight=1, gamma=0, subsample=0.8, colsample_bytree=0.8,
                                                     objective='binary:logistic', nthread=4, scale_pos_weight=1,
                                                     seed=27),
-                            param_grid=param_test1, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+                            param_grid=param_test1, scoring='roc_auc', n_jobs=-1, iid=False, cv=5)
     gsearch1.fit(X_train[predictors], y_train)
     # gsearch1.grid_scores_, gsearch1.best_params_, gsearch1.best_score_
 
@@ -679,11 +679,11 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
                                                     min_child_weight=2, gamma=0, subsample=0.8, colsample_bytree=0.8,
                                                     objective='binary:logistic', nthread=4, scale_pos_weight=1,
                                                     seed=27),
-                            param_grid=param_test2, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+                            param_grid=param_test2, scoring='roc_auc', n_jobs=-1, iid=False, cv=5)
     gsearch2.fit(X_train[predictors], y_train)
     # gsearch2.grid_scores_, gsearch2.best_params_, gsearch2.best_score_
 
-    # test-auc reachs optimum when {'max_depth': 4, 'min_child_weight': 4}
+    # test-auc reachs optimum when {'max_depth': 4/3, 'min_child_weight': 4/3}
 
     # Grid seach on min_child_weight
     # Choose all predictors except target & IDcols
@@ -694,7 +694,7 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
                                                      min_child_weight=2, gamma=0, subsample=0.8, colsample_bytree=0.8,
                                                      objective='binary:logistic', nthread=4, scale_pos_weight=1,
                                                      seed=27),
-                             param_grid=param_test2b, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+                             param_grid=param_test2b, scoring='roc_auc', n_jobs=-1, iid=False, cv=5)
     gsearch2b.fit(X_train[predictors], y_train)
     # gsearch2b.grid_scores_, gsearch2b.best_params_, gsearch2b.best_score_
 
@@ -709,18 +709,18 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
                                                     min_child_weight=3, gamma=0, subsample=0.8, colsample_bytree=0.8,
                                                     objective='binary:logistic', nthread=4, scale_pos_weight=1,
                                                     seed=27),
-                            param_grid=param_test3, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+                            param_grid=param_test3, scoring='roc_auc', n_jobs=-1, iid=False, cv=5)
     gsearch3.fit(X_train[predictors], y_train)
     # gsearch3.grid_scores_, gsearch3.best_params_, gsearch3.best_score_
 
-    # test-auc reachs optimum when {'gamma': 0.0}
+    # test-auc reachs optimum when {'gamma': 0.0/0.3}
 
     xgb2 = XGBClassifier(
         learning_rate=0.1,
         n_estimators=500,
-        max_depth=4,
+        max_depth=3,
         min_child_weight=3,
-        gamma=0,
+        gamma=0.3,
         subsample=0.8,
         colsample_bytree=0.8,
         objective='binary:logistic',
@@ -729,7 +729,7 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
         seed=27)
     xgboost_fit(xgb2, X_train, X_test, y_train, y_test, predictors)
 
-    # test-auc reachs optimum when n_estimators = 253
+    # test-auc reachs optimum when n_estimators = 253/209
 
     # Grid seach on subsample and max_features
     # Choose all predictors except target & IDcols
@@ -741,7 +741,7 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
                                                     min_child_weight=3, gamma=0, subsample=0.8, colsample_bytree=0.8,
                                                     objective='binary:logistic', nthread=4, scale_pos_weight=1,
                                                     seed=27),
-                            param_grid=param_test4, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+                            param_grid=param_test4, scoring='roc_auc', n_jobs=-1, iid=False, cv=5)
     gsearch4.fit(X_train[predictors], y_train)
     # gsearch4.grid_scores_, gsearch4.best_params_, gsearch4.best_score_
 
@@ -756,7 +756,7 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
                                                     min_child_weight=3, gamma=0, subsample=0.8, colsample_bytree=0.7,
                                                     objective='binary:logistic', nthread=4, scale_pos_weight=1,
                                                     seed=27),
-                            param_grid=param_test4a, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+                            param_grid=param_test4a, scoring='roc_auc', n_jobs=-1, iid=False, cv=5)
     gsearch4a.fit(X_train[predictors], y_train)
     # gsearch4a.grid_scores_, gsearch4a.best_params_, gsearch4a.best_score_
 
@@ -772,7 +772,7 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
                                                     min_child_weight=3, gamma=0, subsample=0.8, colsample_bytree=0.8,
                                                     objective='binary:logistic', nthread=4, scale_pos_weight=1,
                                                     seed=27),
-                            param_grid=param_test5, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+                            param_grid=param_test5, scoring='roc_auc', n_jobs=-1, iid=False, cv=5)
     gsearch5.fit(X_train[predictors], y_train)
     # gsearch5.grid_scores_, gsearch5.best_params_, gsearch5.best_score_
 
@@ -787,7 +787,7 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
                                                     min_child_weight=3, gamma=0, subsample=0.9, colsample_bytree=0.7,
                                                     objective='binary:logistic', nthread=4, scale_pos_weight=1,
                                                     seed=27),
-                            param_grid=param_test6, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+                            param_grid=param_test6, scoring='roc_auc', n_jobs=-1, iid=False, cv=5)
     gsearch6.fit(X_train[predictors], y_train)
     # gsearch6.grid_scores_, gsearch6.best_params_, gsearch6.best_score_
 
@@ -802,7 +802,7 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
                                                     min_child_weight=3, gamma=0, subsample=0.9, colsample_bytree=0.7,
                                                     objective='binary:logistic', nthread=4, scale_pos_weight=1,
                                                     seed=27),
-                            param_grid=param_test7, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
+                            param_grid=param_test7, scoring='roc_auc', n_jobs=-1, iid=False, cv=5)
     gsearch7.fit(X_train[predictors], y_train)
     # gsearch7.grid_scores_, gsearch7.best_params_, gsearch7.best_score_
 
@@ -842,24 +842,53 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
 
     xgboost_fit(xgb4, X_train, X_test, y_train, y_test, predictors)
 
+    # optimal XGB for dataset without column 'monetary_value'
+    # xgb_final = XGBClassifier(
+    #     learning_rate=0.01,
+    #     n_estimators=1846,
+    #     max_depth=4,
+    #     min_child_weight=3,
+    #     gamma=0,
+    #     subsample=0.9,
+    #     colsample_bytree=0.7,
+    #     reg_alpha=5,
+    #     objective='binary:logistic',
+    #     nthread=4,
+    #     scale_pos_weight=1,
+    #     seed=27)
+    #
+    # xgboost_fit(xgb_final, X_train, X_test, y_train, y_test, predictors)
+
+    # optimal XGB for dataset with column 'monetary_value'
     xgb_final = XGBClassifier(
-        learning_rate=0.01,
-        n_estimators=1846,
-        max_depth=4,
+        learning_rate=0.1,
+        n_estimators=288,
+        max_depth=3,
         min_child_weight=3,
-        gamma=0,
-        subsample=0.9,
-        colsample_bytree=0.7,
-        reg_alpha=5,
+        gamma=0.3,
+        subsample=0.7,
+        colsample_bytree=0.75,
+        reg_alpha=10,
         objective='binary:logistic',
         nthread=4,
         scale_pos_weight=1,
         seed=27)
 
-    xgboost_fit(xgb4, X_train, X_test, y_train, y_test, predictors)
+    xgboost_fit(xgb_final, X_train, X_test, y_train, y_test, predictors)
 
-    y_test_predictions = xgb4.predict(X_test[predictors])
-    f1 = f1_score(y_test, y_test_predictions)
+    dtest_predictions = xgb4.predict(X_test[predictors])
+    dtest_predprob = xgb4.predict_proba(X_test[predictors])[:, 1]
+
+    f1 = f1_score(y_test, dtest_predictions)
+    cm = confusion_matrix(y_test, dtest_predictions)
+
+    fpr, tpr, thresholds = roc_curve(y_test, dtest_predprob, pos_label=1)
+    plt.plot(fpr, tpr)
+    plt.xlabel('FP')
+    plt.ylabel('TP')
+    plt.title('ROC Curve')
+    save("roc_curve_churnrate_{}".format(plot_source), ext="pdf", close=True, verbose=True)
+
 
 
 def xgboost_fit(alg, X_train, X_test, y_train, y_test,

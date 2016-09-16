@@ -652,6 +652,8 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
                                                          'customer_id', 'order_date',
                                                          'revenue', observation_period_end='2016-08-03')
 
+    calibration_summary = feature_adder(calibration_data, calibration_summary, calibration_period_end)
+
     real_customers_not_alive_index = list(
         set(calibration_summary['frequency'].index) - set(holdout_summary['frequency'].index))
 
@@ -905,6 +907,8 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
 
     xgboost_fit(xgb_final, X_train, X_test, y_train, y_test, predictors)
 
+    # print xgb_final.feature_importances_
+
     dtest_predictions = xgb4.predict(X_test[predictors])
     dtest_predprob = xgb4.predict_proba(X_test[predictors])[:, 1]
 
@@ -917,7 +921,6 @@ def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, cali
     plt.ylabel('TP')
     plt.title('ROC Curve')
     save("roc_curve_churnrate_{}".format(plot_source), ext="pdf", close=True, verbose=True)
-
 
 
 def xgboost_fit(alg, X_train, X_test, y_train, y_test,
@@ -949,6 +952,35 @@ def xgboost_fit(alg, X_train, X_test, y_train, y_test,
     feat_imp = pd.Series(alg.booster().get_fscore()).sort_values(ascending=False)
     feat_imp.plot(kind='bar', title='Feature Importances')
     plt.ylabel('Feature Importance Score')
+
+
+def feature_adder(calibration_data, calibration_summary, calibration_period_end):
+    d_calibration = datetime.strptime(calibration_period_end, '%Y-%m-%d').date()
+    d_point1 = d_calibration - timedelta(days=7)
+    calibration_point1 = calibration_data[(calibration_data.order_date > d_point1.strftime('%Y-%m-%d')) & (
+        calibration_data.order_date < calibration_period_end)].groupby('customer_id', sort=False)['order_date'].agg(
+        ['count'])
+
+    calibration_summary['recent_week_transaction_count'] = 0
+    calibration_summary.ix[calibration_point1.index, 'recent_week_transaction_count'] = calibration_point1['count']
+
+    d_point2 = d_calibration - timedelta(days=30)
+    calibration_point2 = calibration_data[(calibration_data.order_date > d_point2.strftime('%Y-%m-%d')) & (
+        calibration_data.order_date < calibration_period_end)].groupby('customer_id', sort=False)['order_date'].agg(
+        ['count'])
+
+    calibration_summary['recent_month_transaction_count'] = 0
+    calibration_summary.ix[calibration_point2.index, 'recent_month_transaction_count'] = calibration_point2['count']
+
+    d_point3 = d_calibration - timedelta(days=180)
+    calibration_point3 = calibration_data[(calibration_data.order_date > d_point3.strftime('%Y-%m-%d')) & (
+        calibration_data.order_date < calibration_period_end)].groupby('customer_id', sort=False)['order_date'].agg(
+        ['count'])
+
+    calibration_summary['recent_six_months_transaction_count'] = 0
+    calibration_summary.ix[calibration_point3.index, 'recent_six_months_transaction_count'] = calibration_point3['count']
+
+    return calibration_summary
 
 print "churn rate prediction begins..."
 

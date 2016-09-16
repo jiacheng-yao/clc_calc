@@ -171,14 +171,14 @@ Cohort Group & MAE & MAE/AVG & $R^2$ \\
 \end{frame}
 
 \begin{frame}
-\frametitle{Churn Rate Accuracy Evaluation (Foodora)}
+\frametitle{Churn Rate Prediction with ModBetaGeo - Accuracy Evaluation (Foodora)}
 \begin{center}
             \begin{table}
 \begin{tabular}{l | c | c }
  & Predicted: churn & Predicted: alive\\
 \hline \hline
-Actual: churn & 47236 & 9738\\ 
-Actual: alive & 19967 & 190034
+Actual: churn & 15917 & 6360\\ 
+Actual: alive & 4886 & 10138
 \end{tabular}
 \caption{Confusion Matrix for the Churn Rate Prediction}
 \end{table}
@@ -186,8 +186,8 @@ Actual: alive & 19967 & 190034
 \newtheorem{rmk}{Remark}        
        
 \begin{rmk}
-	$ACC=0.889$ \\    
-    $F_1=0.928$
+	$ACC=0.698$ \\    
+    $F_1=0.643$
 \end{rmk}
 \end{frame}
 
@@ -208,6 +208,26 @@ Actual: alive & 6802 & 8222
 \begin{rmk}
 	$ACC=0.732$ \\    
     $F_1=0.622$
+\end{rmk}
+\end{frame}
+
+\begin{frame}
+\frametitle{Churn Rate Prediction with XGBoost - Accuracy Evaluation (Foodora)}
+\begin{center}
+            \begin{table}
+\begin{tabular}{l | c | c }
+ & Predicted: churn & Predicted: alive\\
+\hline \hline
+Actual: churn & 19564 & 2713\\ 
+Actual: alive & 6991 & 8033
+\end{tabular}
+\caption{Confusion Matrix for the Churn Rate Prediction with XGBoost}
+\end{table}
+        \end{center}      
+       
+\begin{rmk}
+	$ACC=0.740$ \\    
+    $F_1=0.623$
 \end{rmk}
 \end{frame}
 
@@ -235,22 +255,62 @@ Cohort Group & MAE & MAE/AVG & $R^2$ \\
 \end{frame}
 
 \begin{frame}
-\frametitle{Churn Rate Accuracy Evaluation (Foodpanda)}
+\frametitle{Churn Rate Prediction with ModBetaGeo - Accuracy Evaluation (Foodpanda)}
 \begin{center}
             \begin{table}
 \begin{tabular}{l | c | c }
  & Predicted: churn & Predicted: alive\\
 \hline \hline
-Actual: churn & 97088 & 17235\\ 
-Actual: alive & 31233 & 241667
+Actual: churn & 61927 & 3353\\ 
+Actual: alive & 11247 & 7424
 \end{tabular}
 \caption{Confusion Matrix for the Churn Rate Prediction}
 \end{table}
         \end{center}     
        
 \begin{rmk}
-	$ACC=0.876$ \\
-    $F_1=0.909$ 
+	$ACC=0.826$ \\
+    $F_1=0.504$ 
+\end{rmk}
+\end{frame}
+
+\begin{frame}
+\frametitle{Churn Rate Prediction with RF - Accuracy Evaluation (Foodpanda)}
+\begin{center}
+            \begin{table}
+\begin{tabular}{l | c | c }
+ & Predicted: churn & Predicted: alive\\
+\hline \hline
+Actual: churn & 19097 & 3180\\ 
+Actual: alive & 6802 & 8222
+\end{tabular}
+\caption{Confusion Matrix for the Churn Rate Prediction with RF}
+\end{table}
+        \end{center}      
+       
+\begin{rmk}
+	$ACC=0.732$ \\    
+    $F_1=0.622$
+\end{rmk}
+\end{frame}
+
+\begin{frame}
+\frametitle{Churn Rate Prediction with XGBoost - Accuracy Evaluation (Foodpanda)}
+\begin{center}
+            \begin{table}
+\begin{tabular}{l | c | c }
+ & Predicted: churn & Predicted: alive\\
+\hline \hline
+Actual: churn & 19564 & 2713\\ 
+Actual: alive & 6991 & 8033
+\end{tabular}
+\caption{Confusion Matrix for the Churn Rate Prediction with XGBoost}
+\end{table}
+        \end{center}      
+       
+\begin{rmk}
+	$ACC=0.740$ \\    
+    $F_1=0.623$
 \end{rmk}
 \end{frame}
 

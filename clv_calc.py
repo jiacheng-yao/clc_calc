@@ -4,6 +4,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, \
     confusion_matrix, r2_score, f1_score, roc_curve, auc, accuracy_score, roc_auc_score
 from sklearn.cross_validation import train_test_split, cross_val_score
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.grid_search import GridSearchCV, RandomizedSearchCV
 
 import matplotlib.pyplot as plt
@@ -599,6 +600,34 @@ def random_forest_optimizer(X, y, scoring='f1', n_iter=10):
     best_parameters = []
     for _ in range(20):
         rand = RandomizedSearchCV(rfc, param_dist, cv=10, scoring=scoring, n_iter=n_iter, n_jobs=-1)
+        rand.fit(X, y)
+        best_scores.append(rand.best_score_)
+        best_parameters.append(rand.best_params_)
+
+    max_score = max(best_scores)
+    max_index = best_scores.index(max_score)
+    optimal_parameter = best_parameters[max_index]
+
+    return optimal_parameter
+
+
+def knn_optimizer(X, y, scoring='f1', n_iter=10):
+    k_range = list(range(1, 31))
+    weight_options = ['uniform', 'distance']
+
+    # create a parameter grid: map the parameter names to the values that should be searched
+    param_dist = dict(n_neighbors=k_range, weights=weight_options)
+    # print(param_grid)
+
+    knn = KNeighborsClassifier()
+
+    # grid = GridSearchCV(rfc, param_grid, cv=10, scoring=scoring, n_jobs=-1)
+    # grid.fit(X, y)
+
+    best_scores = []
+    best_parameters = []
+    for _ in range(20):
+        rand = RandomizedSearchCV(knn, param_dist, cv=10, scoring=scoring, n_iter=n_iter, n_jobs=-1)
         rand.fit(X, y)
         best_scores.append(rand.best_score_)
         best_parameters.append(rand.best_params_)

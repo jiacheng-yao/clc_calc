@@ -42,9 +42,6 @@ plot_source = "sg"
 if is_summary_available is False:
     # transaction_data = pd.read_csv(input_file, sep=';')
     transaction_data = pd.read_csv(input_file, sep=';') # for FD dataset
-
-    recent_transaction_data = transaction_data[transaction_data['order_date'] > "2014-12-31"]
-
     # summary = summary_data_from_transaction_data(recent_transaction_data,
     #                                              'customer_id', 'order_date',
     #                                              'revenue', observation_period_end='2016-08-03')
@@ -55,12 +52,12 @@ if is_summary_available is False:
 else:
     transaction_data = pd.read_csv(input_file, sep=';')
 
-    recent_transaction_data = transaction_data[transaction_data['order_date'] > "2014-12-31"]
-
     # summary = pd.read_csv(output_file, sep=';')
 
 if plot_source is "sg":
-    recent_transaction_data['order_date'] = recent_transaction_data.order_date.apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
+    transaction_data['order_date'] = transaction_data.order_date.apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
+
+recent_transaction_data = transaction_data[transaction_data['order_date'] > "2014-12-31"]
 
 
 def bgf_analyser(summary, plot_source):
@@ -218,7 +215,7 @@ def transaction_count_accuracy_calculator(prediction_model, data=recent_transact
                                                                                              r['recency_cal'],
                                                                                              r['T_cal']), axis=1)
 
-    summary_cal_holdout['pred_trans_count'] = summary_cal_holdout['pred_trans_count'].astype(int)
+    # summary_cal_holdout['pred_trans_count'] = summary_cal_holdout['pred_trans_count'].astype(int)
 
     mse = mean_absolute_error(summary_cal_holdout['frequency_holdout'], summary_cal_holdout['pred_trans_count'])
     mse_div_avg = mean_absolute_error(summary_cal_holdout['frequency_holdout'],
@@ -227,7 +224,7 @@ def transaction_count_accuracy_calculator(prediction_model, data=recent_transact
     r2 = r2_score(summary_cal_holdout['frequency_holdout'], summary_cal_holdout['pred_trans_count'])
 
     # return df['real_clv'], df['pred_clv']
-    return mse, mse_div_avg, r2
+    return summary_cal_holdout['frequency_holdout'], summary_cal_holdout['pred_trans_count']
 
 
 def transaction_count_accuracy_calculator_per_cohort(prediction_model, data=recent_transaction_data, cohort='2015-06',
@@ -981,6 +978,78 @@ def feature_adder(calibration_data, calibration_summary, calibration_period_end)
     calibration_summary.ix[calibration_point3.index, 'recent_six_months_transaction_count'] = calibration_point3['count']
 
     return calibration_summary
+
+
+def performance_comparison_w_zodiac(data = transaction_data, zodiac_input = 'predictions_9months_c1.csv',
+                                    observation_start = '2015-01-01', observation_duration = 78*7):
+    zodiac_pred_results = pd.read_csv(zodiac_input, sep=',')
+
+    observation_end = datetime.strptime(observation_start, '%Y-%m-%d').date() + timedelta(days=observation_duration)
+    calibration_end = datetime.strptime(observation_start, '%Y-%m-%d').date() + timedelta(days=observation_duration / 2)
+
+    observation_end = observation_end.strftime('%Y-%m-%d')
+    calibration_end = calibration_end.strftime('%Y-%m-%d')
+
+    data['order_date'] = data.order_date.apply(
+        lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
+    data.set_index('customer_id', inplace=True)
+    data['cohort_group'] = \
+        data.groupby(level=0)['order_date'].min().apply(lambda x: x.strftime('%Y-%m'))
+    data.reset_index(inplace=True)
+
+    transaction_in_cohort = data[
+        (data['cohort_group'] >= '2015-01') & (data['cohort_group'] <= '2015-03')]
+
+    transaction_in_cohort = transaction_in_cohort[(transaction_in_cohort['order_date'] >= observation_start)
+                                             & (transaction_in_cohort['order_date'] < observation_end)]
+
+    # calibration_data = transaction_in_cohort[transaction_in_cohort['order_date'] < calibration_end]
+    # holdout_data = transaction_in_cohort[transaction_in_cohort['order_date'] >= calibration_end]
+    #
+    # calibration_summary = summary_data_from_transaction_data(calibration_data,
+    #                                                          'customer_id', 'order_date',
+    #                                                          'revenue', observation_period_end=calibration_end)
+    # holdout_summary = summary_data_from_transaction_data(holdout_data,
+    #                                                      'customer_id', 'order_date',
+    #                                                      'revenue', observation_period_end=observation_end)
+    #
+    # calibration_summary = feature_adder(calibration_data, calibration_summary, calibration_end)
+    #
+    # real_customers_not_alive_index = list(
+    #     set(calibration_summary['frequency'].index) - set(holdout_summary['frequency'].index))
+    #
+    # is_alive = pd.DataFrame(index=calibration_summary['frequency'].index)
+    # is_alive['real'] = 1
+    #
+    # is_alive.ix[real_customers_not_alive_index, 'real'] = 0
+    #
+    # predictors = [x for x in calibration_summary.columns if x not in ['customer_id']]
+    #
+    # X_train, X_test, y_train, y_test = \
+    #     train_test_split(calibration_summary, is_alive['real'], test_size=0.3, random_state=42)
+
+    holdout_frequency, holdout_trans_pred = transaction_count_accuracy_calculator(None,
+                                                                                  transaction_in_cohort,
+                                                                                  calibration_end,
+                                                                                  observation_end)
+
+    zodiac_pred_results.set_index('customer_id', inplace=True)
+    zodiac_pred_results['gg_pred_total_trans_9'] = holdout_trans_pred
+    zodiac_pred_results['real_total_trans_9'] = holdout_frequency
+
+    mse = mean_absolute_error(zodiac_pred_results['real_total_trans_9'], zodiac_pred_results['gg_pred_total_trans_9'])
+    mse_div_avg = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],
+                                      zodiac_pred_results['gg_pred_total_trans_9']) / zodiac_pred_results[
+                      'real_total_trans_9'].mean()
+    r2 = r2_score(zodiac_pred_results['real_total_trans_9'], zodiac_pred_results['gg_pred_total_trans_9'])
+
+    mse_zodiac = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],
+                                     zodiac_pred_results['expected_total_trans_9'])
+    mse_div_avg_zodiac = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],
+                                             zodiac_pred_results['expected_total_trans_9']) \
+                         / zodiac_pred_results['real_total_trans_9'].mean()
+    r2_zodiac = r2_score(zodiac_pred_results['real_total_trans_9'], zodiac_pred_results['expected_total_trans_9'])
+
 
 print "churn rate prediction begins..."
 

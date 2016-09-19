@@ -270,16 +270,6 @@ def clv_accuracy_calculator(prediction_model, data=recent_transaction_data,
                                                  'customer_id', 'order_date',
                                                  'revenue', observation_period_end=calibration_period_end)
 
-    holdout_summary = summary_data_from_transaction_data(holdout_data,
-                                                 'customer_id', 'order_date',
-                                                 'revenue', observation_period_end='2016-08-03')
-
-    print calibration_summary.head()
-    print holdout_summary.head()
-
-    calibration_summary.to_csv(calibration_output_file, sep=';', encoding='utf-8')
-    holdout_summary.to_csv(holdout_output_file, sep=';', encoding='utf-8')
-
     if prediction_model is None:
         prediction_model = ModifiedBetaGeoFitter(penalizer_coef=0.0)
         prediction_model.fit(calibration_summary['frequency'],
@@ -312,8 +302,7 @@ def clv_accuracy_calculator(prediction_model, data=recent_transaction_data,
     mse_div_avg = mean_squared_error(df['real_clv'], df['pred_clv'])/df['real_clv'].mean()
     r2 = r2_score(df['real_clv'], df['pred_clv'])
 
-    # return df['real_clv'], df['pred_clv']
-    return mse, mse_div_avg, r2
+    return df['real_clv'], df['pred_clv']
 
 
 def clv_classifier(data=recent_transaction_data,
@@ -1033,22 +1022,43 @@ def performance_comparison_w_zodiac(data = transaction_data, zodiac_input = 'pre
                                                                                   calibration_end,
                                                                                   observation_end)
 
+    holdout_real_clv, holdout_pred_clv = clv_accuracy_calculator(None,
+                                                                 transaction_in_cohort, 0,
+                                                                 calibration_end,
+                                                                 observation_end)
+
     zodiac_pred_results.set_index('customer_id', inplace=True)
     zodiac_pred_results['gg_pred_total_trans_9'] = holdout_trans_pred
     zodiac_pred_results['real_total_trans_9'] = holdout_frequency
 
-    mse = mean_absolute_error(zodiac_pred_results['real_total_trans_9'], zodiac_pred_results['gg_pred_total_trans_9'])
-    mse_div_avg = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],
+    zodiac_pred_results['gg_expected_total_sales_9'] = holdout_pred_clv
+    zodiac_pred_results['real_total_sales_9'] = holdout_real_clv
+
+    trans_mse = mean_absolute_error(zodiac_pred_results['real_total_trans_9'], zodiac_pred_results['gg_pred_total_trans_9'])
+    trans_mse_div_avg = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],
                                       zodiac_pred_results['gg_pred_total_trans_9']) / zodiac_pred_results[
                       'real_total_trans_9'].mean()
-    r2 = r2_score(zodiac_pred_results['real_total_trans_9'], zodiac_pred_results['gg_pred_total_trans_9'])
+    trans_r2 = r2_score(zodiac_pred_results['real_total_trans_9'], zodiac_pred_results['gg_pred_total_trans_9'])
 
-    mse_zodiac = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],
+    trans_mse_zodiac = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],
                                      zodiac_pred_results['expected_total_trans_9'])
-    mse_div_avg_zodiac = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],
+    trans_mse_div_avg_zodiac = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],
                                              zodiac_pred_results['expected_total_trans_9']) \
                          / zodiac_pred_results['real_total_trans_9'].mean()
-    r2_zodiac = r2_score(zodiac_pred_results['real_total_trans_9'], zodiac_pred_results['expected_total_trans_9'])
+    trans_r2_zodiac = r2_score(zodiac_pred_results['real_total_trans_9'], zodiac_pred_results['expected_total_trans_9'])
+
+    clv_mse = mean_absolute_error(zodiac_pred_results['real_total_sales_9'], zodiac_pred_results['gg_expected_total_sales_9'])
+    clv_mse_div_avg = mean_absolute_error(zodiac_pred_results['real_total_sales_9'],
+                                      zodiac_pred_results['gg_expected_total_sales_9']) / zodiac_pred_results[
+                      'real_total_sales_9'].mean()
+    clv_r2 = r2_score(zodiac_pred_results['real_total_sales_9'], zodiac_pred_results['gg_expected_total_sales_9'])
+
+    clv_mse_zodiac = mean_absolute_error(zodiac_pred_results['real_total_sales_9'],
+                                     zodiac_pred_results['expected_total_sales_9'])
+    clv_mse_div_avg_zodiac = mean_absolute_error(zodiac_pred_results['real_total_sales_9'],
+                                             zodiac_pred_results['expected_total_sales_9']) \
+                         / zodiac_pred_results['real_total_sales_9'].mean()
+    clv_r2_zodiac = r2_score(zodiac_pred_results['real_total_sales_9'], zodiac_pred_results['expected_total_sales_9'])
 
 
 print "churn rate prediction begins..."

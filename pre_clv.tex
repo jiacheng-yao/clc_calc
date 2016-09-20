@@ -318,13 +318,19 @@ Actual: alive & 6991 & 8033
 \frametitle{Transaction Count Prediction - Comparison with ZodiacMetrics (Foodpanda)}
 \begin{center}
             \begin{table}
-\begin{tabular}{l | c | c | c}
- & MSE & MSE/AVG & $R^2$\\
+\begin{tabular}{l | c| c | c | c}
+ & Cohort & MSE & MSE/AVG & $R^2$\\
 \hline \hline
-ModBetaGeo & 0.813 & 1.131 & 0.371\\ 
-ZodiacMetrics & 0.830 & 1.156 & 0.266
+M & 2015-Q1 & 0.813 & 1.131 & 0.371\\ 
+Z & & 0.830 & 1.156 & 0.266\\
+\hline \hline
+M & 2015-Q2 & 0.836 & 0.984 & 0.374\\ 
+Z & & 0.817 & 0.962 & 0.307\\
+\hline \hline
+M & 2013-Q1 & 1.136 & 0.873 & 0.415\\ 
+Z & & 1.200 & 0.922 & 0.293
 \end{tabular}
-\caption{Comparison between ModBetaGeo and ZodiacMetrics}
+\caption{Comparison between ModBetaGeo (M) and ZodiacMetrics (Z)}
 \end{table}
         \end{center}      
        

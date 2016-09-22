@@ -380,16 +380,16 @@ def clv_accuracy_calculator_cohort_comparison(data=recent_transaction_data):
 
     dates = [dt.strftime('%Y-%m') for dt in rrule(MONTHLY, dtstart=cohort_start, until=cohort_end)]
 
-    mse_list = []
-    mse_div_avg_list = []
+    mae_list = []
+    mae_div_avg_list = []
     r2_list = []
     for d in dates:
-        mse, mse_div_avg, r2 = clv_accuracy_calculator_per_cohort(None, data, cohort=d)
-        mse_list.append(mse)
-        mse_div_avg_list.append(mse_div_avg)
+        mae, mae_div_avg, r2 = clv_accuracy_calculator_per_cohort(None, data, cohort=d)
+        mae_list.append(mae)
+        mae_div_avg_list.append(mae_div_avg)
         r2_list.append(r2)
 
-    return mse_list, mse_div_avg_list, r2_list
+    return mae_list, mae_div_avg_list, r2_list
 
 
 def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
@@ -1034,28 +1034,28 @@ def performance_comparison_w_zodiac(data = transaction_data, zodiac_input = 'pre
     zodiac_pred_results['gg_expected_total_sales_9'] = holdout_pred_clv
     zodiac_pred_results['real_total_sales_9'] = holdout_real_clv
 
-    trans_mse = mean_absolute_error(zodiac_pred_results['real_total_trans_9'], zodiac_pred_results['gg_pred_total_trans_9'])
-    trans_mse_div_avg = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],
+    trans_mae = mean_absolute_error(zodiac_pred_results['real_total_trans_9'], zodiac_pred_results['gg_pred_total_trans_9'])
+    trans_mae_div_avg = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],
                                       zodiac_pred_results['gg_pred_total_trans_9']) / zodiac_pred_results[
                       'real_total_trans_9'].mean()
     trans_r2 = r2_score(zodiac_pred_results['real_total_trans_9'], zodiac_pred_results['gg_pred_total_trans_9'])
 
-    trans_mse_zodiac = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],
+    trans_mae_zodiac = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],
                                      zodiac_pred_results['expected_total_trans_9'])
-    trans_mse_div_avg_zodiac = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],
+    trans_mae_div_avg_zodiac = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],
                                              zodiac_pred_results['expected_total_trans_9']) \
                          / zodiac_pred_results['real_total_trans_9'].mean()
     trans_r2_zodiac = r2_score(zodiac_pred_results['real_total_trans_9'], zodiac_pred_results['expected_total_trans_9'])
 
-    clv_mse = mean_absolute_error(zodiac_pred_results['real_total_sales_9'], zodiac_pred_results['gg_expected_total_sales_9'])
-    clv_mse_div_avg = mean_absolute_error(zodiac_pred_results['real_total_sales_9'],
+    clv_mae = mean_absolute_error(zodiac_pred_results['real_total_sales_9'], zodiac_pred_results['gg_expected_total_sales_9'])
+    clv_mae_div_avg = mean_absolute_error(zodiac_pred_results['real_total_sales_9'],
                                       zodiac_pred_results['gg_expected_total_sales_9']) / zodiac_pred_results[
                       'real_total_sales_9'].mean()
     clv_r2 = r2_score(zodiac_pred_results['real_total_sales_9'], zodiac_pred_results['gg_expected_total_sales_9'])
 
-    clv_mse_zodiac = mean_absolute_error(zodiac_pred_results['real_total_sales_9'],
+    clv_mae_zodiac = mean_absolute_error(zodiac_pred_results['real_total_sales_9'],
                                      zodiac_pred_results['expected_total_sales_9'])
-    clv_mse_div_avg_zodiac = mean_absolute_error(zodiac_pred_results['real_total_sales_9'],
+    clv_mae_div_avg_zodiac = mean_absolute_error(zodiac_pred_results['real_total_sales_9'],
                                              zodiac_pred_results['expected_total_sales_9']) \
                          / zodiac_pred_results['real_total_sales_9'].mean()
     clv_r2_zodiac = r2_score(zodiac_pred_results['real_total_sales_9'], zodiac_pred_results['expected_total_sales_9'])

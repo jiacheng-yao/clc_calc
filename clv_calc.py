@@ -73,6 +73,51 @@ def forceAspect(ax, aspect=1):
     ax.set_aspect(abs((extent[1] - extent[0]) / (extent[3] - extent[2])) / aspect)
 
 
+def plot_fr_clv_heatmap(data, T=0, max_frequency=None, max_recency=None, **kwargs):
+    """
+    Plot a figure of expected transactions in T next units of time by a customer's
+    frequency and recency.
+
+    Parameters:
+        model: a fitted lifetimes model.
+        T: next units of time to make predictions for
+        max_frequency: the maximum frequency to plot. Default is max observed frequency.
+        max_recency: the maximum recency to plot. This also determines the age of the customer.
+            Default to max observed age.
+        kwargs: passed into the matplotlib.imshow command.
+
+    """
+    from matplotlib import pyplot as plt
+
+    if max_frequency is None:
+        max_frequency = int(data['frequency_cal'].max())
+
+    if max_recency is None:
+        max_recency = int(data['recency_cal'].max())
+
+    Z = np.zeros((max_recency + 1, max_frequency + 1))
+    for i, recency in enumerate(np.arange(max_recency + 1)):
+        for j, frequency in enumerate(np.arange(max_frequency + 1)):
+            tmp_df = data[(data['frequency_cal'] == j) & (data['recency_cal'] == i)]
+            Z[i][j] = tmp_df['expected_total_sales_9'].mean()
+
+    interpolation = kwargs.pop('interpolation', 'none')
+
+    ax = plt.subplot(111)
+    PCM = ax.imshow(Z, interpolation=interpolation, cmap='GnBu', **kwargs)
+    plt.xlabel("Customer's Historical Frequency")
+    plt.ylabel("Customer's Recency")
+    plt.title('Predicted Sales for the next {} months\nby Frequency and Recency of a Customer'.format(T))
+
+    # turn matrix into square
+    forceAspect(ax)
+
+    # plot colorbar beside matrix
+    plt.colorbar(PCM, ax=ax)
+
+    return ax
+
+
 def custom_plot_probability_alive_matrix(model, max_frequency=None, max_recency=None, **kwargs):
     """
     Plot a figure of the probability a customer is alive based on their

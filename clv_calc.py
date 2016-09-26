@@ -9,6 +9,8 @@ from sklearn.grid_search import GridSearchCV, RandomizedSearchCV
 
 import matplotlib.pyplot as plt
 
+import seaborn as sns
+
 import plotly.tools as tls
 import plotly.plotly as py
 import plotly.graph_objs as go
@@ -1177,6 +1179,50 @@ def performance_comparison_w_zodiac(data = transaction_data, zodiac_input = 'pre
     )
     data3 = [trace3]
     py.iplot(data3, filename='comparison_scatter_trans_C1_sample (zodiac)')
+
+    grid = sns.JointGrid(result_sample['real_total_trans_9'], result_sample['gg_pred_total_trans_9'], space=0,
+                         size=6, ratio=100)
+    grid.plot_joint(plt.scatter, color="b")
+    plt.plot([0, 30], [0, 30], linewidth=2, color="r")
+
+    plt.title('Future Transaction Count Prediction Performance')
+    plt.xlabel('Real')
+    plt.ylabel('Prediction')
+
+    save("comparison_scatter_trans_C1_sample_sns (own)", ext="pdf", close=True, verbose=True)
+
+    grid = sns.JointGrid(result_sample['real_total_sales_9'], result_sample['gg_expected_total_sales_9'], space=0,
+                         size=6, ratio=100)
+    grid.plot_joint(plt.scatter, color="g")
+    plt.plot([0, 30], [0, 30], linewidth=2, color="r")
+
+    plt.title('Future Sales Prediction Performance')
+    plt.xlabel('Real')
+    plt.ylabel('Prediction')
+
+    save("comparison_scatter_sales_C1_sample_sns (own)", ext="pdf", close=True, verbose=True)
+
+    grid = sns.JointGrid(result_sample['real_total_trans_9'], result_sample['expected_total_trans_9'], space=0,
+                         size=6, ratio=100)
+    grid.plot_joint(plt.scatter, color="b")
+    plt.plot([0, 30], [0, 30], linewidth=2, color="r")
+
+    plt.title('Future Transaction Count Prediction Performance (Zodiac)')
+    plt.xlabel('Real')
+    plt.ylabel('Prediction (Zodiac)')
+
+    save("comparison_scatter_trans_C1_sample_sns (zodiac)", ext="pdf", close=True, verbose=True)
+
+    grid = sns.JointGrid(result_sample['real_total_sales_9'], result_sample['expected_total_sales_9'], space=0,
+                         size=6, ratio=100)
+    grid.plot_joint(plt.scatter, color="g")
+    plt.plot([0, 30], [0, 30], linewidth=2, color="r")
+
+    plt.title('Future Sales Prediction Performance (Zodiac)')
+    plt.xlabel('Real')
+    plt.ylabel('Prediction (Zodiac)')
+
+    save("comparison_scatter_sales_C1_sample_sns (zodiac)", ext="pdf", close=True, verbose=True)
 
 
 print "churn rate prediction begins..."

@@ -9,6 +9,11 @@ from sklearn.grid_search import GridSearchCV, RandomizedSearchCV
 
 import matplotlib.pyplot as plt
 
+import plotly.tools as tls
+import plotly.plotly as py
+import plotly.graph_objs as go
+tls.set_credentials_file(username='JC.07', api_key='pfaxd1wu7v')
+
 import xgboost as xgb
 from xgboost.sklearn import XGBClassifier
 
@@ -60,6 +65,46 @@ if plot_source is "sg":
 recent_transaction_data = transaction_data[transaction_data['order_date'] > "2014-12-31"]
 
 
+def forceAspect(ax, aspect=1):
+    im = ax.get_images()
+    extent = im[0].get_extent()
+    ax.set_aspect(abs((extent[1] - extent[0]) / (extent[3] - extent[2])) / aspect)
+
+
+def custom_plot_probability_alive_matrix(model, max_frequency=None, max_recency=None, **kwargs):
+    """
+    Plot a figure of the probability a customer is alive based on their
+    frequency and recency.
+
+    Parameters:
+        model: a fitted lifetimes model.
+        max_frequency: the maximum frequency to plot. Default is max observed frequency.
+        max_recency: the maximum recency to plot. This also determines the age of the customer.
+            Default to max observed age.
+        kwargs: passed into the matplotlib.imshow command.
+    """
+    from matplotlib import pyplot as plt
+
+    z = model.conditional_probability_alive_matrix(max_frequency, max_recency)
+
+    interpolation = kwargs.pop('interpolation', 'none')
+
+    ax = plt.subplot(111)
+    PCM = ax.imshow(z, interpolation=interpolation, **kwargs)
+    plt.xlabel("Customer's Historical Frequency")
+    plt.ylabel("Customer's Recency")
+    plt.yticks(np.arange(0, 400, 100.0), np.arange(400, -1, -100))
+    plt.title('Probability Customer is Alive,\nby Frequency and Recency of a Customer')
+
+    # turn matrix into square
+    forceAspect(ax)
+
+    # plot colorbar beside matrix
+    plt.colorbar(PCM, ax=ax)
+
+    return ax
+
+
 def bgf_analyser(summary, plot_source):
     bgf = BetaGeoFitter(penalizer_coef=0.0)
     bgf.fit(summary['frequency'],
@@ -74,6 +119,9 @@ def bgf_analyser(summary, plot_source):
 
     plot_period_transactions(bgf)
     save("period_transactions_{}".format(plot_source), ext="pdf", close=True, verbose=True)
+
+    custom_plot_probability_alive_matrix(bgf)
+    save("pr_alive_reversed_{}".format(plot_source), ext="pdf", close=True, verbose=True)
 
     return bgf
 
@@ -1059,6 +1107,76 @@ def performance_comparison_w_zodiac(data = transaction_data, zodiac_input = 'pre
                                              zodiac_pred_results['expected_total_sales_9']) \
                          / zodiac_pred_results['real_total_sales_9'].mean()
     clv_r2_zodiac = r2_score(zodiac_pred_results['real_total_sales_9'], zodiac_pred_results['expected_total_sales_9'])
+
+    result_sample = zodiac_pred_results.sample(frac=0.1)
+
+    trace0 = go.Scatter(
+        x=result_sample['real_total_sales_9'],
+        y=result_sample['gg_expected_total_sales_9'],
+        name='Sales for the next 9 months',
+        mode='markers',
+        marker=dict(
+            size=10,
+            color='rgba(0, 0, 152, .8)',
+            line=dict(
+                width=2,
+                color='rgb(0, 0, 0)'
+            )
+        )
+    )
+    data0 = [trace0]
+    py.iplot(data0, filename='comparison_scatter_sales_C1_sample (own)')
+
+    trace1 = go.Scatter(
+        x=result_sample['real_total_trans_9'],
+        y=result_sample['gg_pred_total_trans_9'],
+        name='Transaction counts for the next 9 months',
+        mode='markers',
+        marker=dict(
+            size=10,
+            color='rgba(0, 152, 0, .8)',
+            line=dict(
+                width=2,
+                color='rgb(0, 0, 0)'
+            )
+        )
+    )
+    data1 = [trace1]
+    py.iplot(data1, filename='comparison_scatter_trans_C1_sample (own)')
+
+    trace2 = go.Scatter(
+        x=result_sample['real_total_sales_9'],
+        y=result_sample['expected_total_sales_9'],
+        name='Sales for the next 9 months (Zodiac)',
+        mode='markers',
+        marker=dict(
+            size=10,
+            color='rgba(10, 0, 152, .8)',
+            line=dict(
+                width=2,
+                color='rgb(0, 0, 0)'
+            )
+        )
+    )
+    data2 = [trace2]
+    py.iplot(data2, filename='comparison_scatter_sales_C1_sample (zodiac)')
+
+    trace3 = go.Scatter(
+        x=result_sample['real_total_trans_9'],
+        y=result_sample['expected_total_trans_9'],
+        name='Transaction counts for the next 9 months (Zodiac)',
+        mode='markers',
+        marker=dict(
+            size=10,
+            color='rgba(10, 152, 0, .8)',
+            line=dict(
+                width=2,
+                color='rgb(0, 0, 0)'
+            )
+        )
+    )
+    data3 = [trace3]
+    py.iplot(data3, filename='comparison_scatter_trans_C1_sample (zodiac)')
 
 
 print "churn rate prediction begins..."

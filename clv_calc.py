@@ -101,7 +101,7 @@ def plot_fr_clv_heatmap(data, T=9, max_frequency=None, max_recency=None, **kwarg
     #         tmp_df = data[(data['frequency_cal'] == j) & (data['recency_cal'] == i)]
     #         Z[i][j] = tmp_df['expected_total_sales_9'].mean()
 
-    x_bin_size = 30
+    x_bin_size = 10
     y_bin_size = 10
     x_tick_step = 3
     y_tick_step = 3

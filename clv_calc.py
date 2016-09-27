@@ -111,7 +111,7 @@ def plot_fr_clv_heatmap(data, T=9, max_frequency=None, max_recency=None, **kwarg
         for j in np.arange((max_frequency + 1) / y_bin_size + 1):
             tmp_df = data[(data['frequency_cal'] >= j * y_bin_size) & (data['recency_cal'] >= i * x_bin_size) &
                          (data['frequency_cal'] < (j + 1) * y_bin_size) & (data['recency_cal'] < (i + 1) * x_bin_size)]
-            Z_binned[i][j] = tmp_df['expected_total_sales_9'].max()
+            Z_binned[i][j] = tmp_df['real_total_sales_9'].mean()
 
     interpolation = kwargs.pop('interpolation', 'none')
 
@@ -1142,6 +1142,19 @@ def performance_comparison_w_zodiac(data = transaction_data, zodiac_input = 'pre
 
     zodiac_pred_results['gg_expected_total_sales_9'] = holdout_pred_clv
     zodiac_pred_results['real_total_sales_9'] = holdout_real_clv
+
+    summary_cal_holdout = calibration_and_holdout_data(transaction_in_cohort, 'customer_id', 'order_date',
+                                                       calibration_period_end=calibration_end,
+                                                       observation_period_end=observation_end)
+
+    zodiac_pred_results.reset_index(inplace=True)
+    summary_cal_holdout.reset_index(inplace=True)
+
+    res = pd.merge(zodiac_pred_results, summary_cal_holdout, how='inner')
+    # res_sample = res.sample(frac=0.1)
+
+    plot_fr_clv_heatmap(res)
+    save("fr_clv_heatmap_binned", ext="pdf", close=True, verbose=True)
 
     trans_mae = mean_absolute_error(zodiac_pred_results['real_total_trans_9'], zodiac_pred_results['gg_pred_total_trans_9'])
     trans_mae_div_avg = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],

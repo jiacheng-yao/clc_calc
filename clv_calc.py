@@ -73,7 +73,7 @@ def forceAspect(ax, aspect=1):
     ax.set_aspect(abs((extent[1] - extent[0]) / (extent[3] - extent[2])) / aspect)
 
 
-def plot_fr_clv_heatmap(data, T=0, max_frequency=None, max_recency=None, **kwargs):
+def plot_fr_clv_heatmap(data, T=9, max_frequency=None, max_recency=None, **kwargs):
     """
     Plot a figure of expected transactions in T next units of time by a customer's
     frequency and recency.
@@ -95,18 +95,32 @@ def plot_fr_clv_heatmap(data, T=0, max_frequency=None, max_recency=None, **kwarg
     if max_recency is None:
         max_recency = int(data['recency_cal'].max())
 
-    Z = np.zeros((max_recency + 1, max_frequency + 1))
-    for i, recency in enumerate(np.arange(max_recency + 1)):
-        for j, frequency in enumerate(np.arange(max_frequency + 1)):
-            tmp_df = data[(data['frequency_cal'] == j) & (data['recency_cal'] == i)]
-            Z[i][j] = tmp_df['expected_total_sales_9'].mean()
+    # Z = np.zeros((max_recency + 1, max_frequency + 1))
+    # for i, recency in enumerate(np.arange(max_recency + 1)):
+    #     for j, frequency in enumerate(np.arange(max_frequency + 1)):
+    #         tmp_df = data[(data['frequency_cal'] == j) & (data['recency_cal'] == i)]
+    #         Z[i][j] = tmp_df['expected_total_sales_9'].mean()
+
+    x_bin_size = 30
+    y_bin_size = 10
+    x_tick_step = 3
+    y_tick_step = 3
+
+    Z_binned = np.zeros(((max_recency + 1) / x_bin_size + 1, (max_frequency + 1) / y_bin_size + 1))
+    for i in np.arange((max_recency + 1) / x_bin_size + 1):
+        for j in np.arange((max_frequency + 1) / y_bin_size + 1):
+            tmp_df = data[(data['frequency_cal'] >= j * y_bin_size) & (data['recency_cal'] >= i * x_bin_size) &
+                         (data['frequency_cal'] < (j + 1) * y_bin_size) & (data['recency_cal'] < (i + 1) * x_bin_size)]
+            Z_binned[i][j] = tmp_df['expected_total_sales_9'].max()
 
     interpolation = kwargs.pop('interpolation', 'none')
 
     ax = plt.subplot(111)
-    PCM = ax.imshow(Z, interpolation=interpolation, cmap='GnBu', **kwargs)
+    PCM = ax.imshow(Z_binned, interpolation=interpolation, cmap='GnBu', **kwargs)
     plt.xlabel("Customer's Historical Frequency")
     plt.ylabel("Customer's Recency")
+    plt.yticks(np.arange(0, Z_binned.shape[0], x_tick_step), np.arange(x_bin_size*Z_binned.shape[0], -1, -x_tick_step*x_bin_size))
+    plt.xticks(np.arange(0, Z_binned.shape[1], y_tick_step), np.arange(0, y_bin_size*Z_binned.shape[1], y_tick_step*y_bin_size))
     plt.title('Predicted Sales for the next {} months\nby Frequency and Recency of a Customer'.format(T))
 
     # turn matrix into square

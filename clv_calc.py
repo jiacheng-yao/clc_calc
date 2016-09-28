@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 
 import seaborn as sns
 
+from skimage.filters import gaussian
+
 import plotly.tools as tls
 import plotly.plotly as py
 import plotly.graph_objs as go
@@ -119,10 +121,10 @@ def plot_fr_clv_heatmap(data, T=9, max_frequency=None, max_recency=None, **kwarg
                          (data['frequency_cal'] < (j + 1) * y_bin_size) & (data['recency_cal'] < (i + 1) * x_bin_size)]
             Z_binned[i][j] = tmp_df['real_total_sales_9'].mean()
 
-    interpolation = kwargs.pop('interpolation', 'none')
+    interpolation = kwargs.pop('interpolation', 'nearest')
 
     ax = plt.subplot(111)
-    PCM = ax.imshow(Z_binned, interpolation='nearest', cmap='GnBu', **kwargs)
+    PCM = ax.imshow(Z_binned, interpolation=interpolation, cmap='GnBu', **kwargs)
     plt.xlabel("Customer's Historical Frequency")
     plt.ylabel("Customer's Recency")
     plt.yticks(np.arange(0, Z_binned.shape[0], x_tick_step), np.arange(x_bin_size*Z_binned.shape[0], -1, -x_tick_step*x_bin_size))
@@ -134,8 +136,28 @@ def plot_fr_clv_heatmap(data, T=9, max_frequency=None, max_recency=None, **kwarg
 
     # plot colorbar beside matrix
     plt.colorbar(PCM, ax=ax)
+    save("fr_clv_heatmap_binned", ext="pdf", close=True, verbose=True)
 
-    return ax
+    # return ax
+
+    Z_filtered = gaussian(Z_binned, sigma=[5, 3])
+
+    ax = plt.subplot(111)
+    PCM = ax.imshow(Z_filtered, interpolation='nearest', cmap='GnBu')
+    plt.xlabel("Customer's Historical Frequency")
+    plt.ylabel("Customer's Recency")
+    plt.yticks(np.arange(0, Z_filtered.shape[0], x_tick_step),
+               np.arange(x_bin_size * Z_filtered.shape[0], -1, -x_tick_step * x_bin_size))
+    plt.xticks(np.arange(0, Z_filtered.shape[1], y_tick_step),
+               np.arange(0, y_bin_size * Z_filtered.shape[1], y_tick_step * y_bin_size))
+    plt.title('Predicted Sales for the next {} months\nby Frequency and Recency of a Customer'.format(T))
+
+    # turn matrix into square
+    forceAspect(ax)
+
+    # plot colorbar beside matrix
+    plt.colorbar(PCM, ax=ax)
+    save("fr_clv_heatmap_binned_filtered", ext="pdf", close=True, verbose=True)
 
 
 def custom_plot_probability_alive_matrix(model, max_frequency=None, max_recency=None, **kwargs):
@@ -236,7 +258,7 @@ def calculate(func, args):
 # Functions referenced by tasks
 #
 
-def bgf_fit_in_multiprocessing():
+def bgf_fit_in_multiprocessing(data):
     start_date = date(2016, 3, 20)
     end_date = date(2016, 4, 1)
 
@@ -247,7 +269,7 @@ def bgf_fit_in_multiprocessing():
 
 
     NUMBER_OF_PROCESSES = cpu_count()
-    TASKS1 = [(cal_vs_holdout_in_parallel, (transaction_data, period)) for period in periods]
+    TASKS1 = [(cal_vs_holdout_in_parallel, (data, period)) for period in periods]
 
     # Create queues
     task_queue = Queue()
@@ -1165,7 +1187,6 @@ def performance_comparison_w_zodiac(input_file = 'zodiac_experiment_v2/fp_zodiac
     # res_sample = res.sample(frac=0.1)
 
     plot_fr_clv_heatmap(res)
-    save("fr_clv_heatmap_binned_test", ext="pdf", close=True, verbose=True)
 
     print "Plot rendering procedure completed..."
 
@@ -1310,11 +1331,3 @@ def performance_comparison_w_zodiac(input_file = 'zodiac_experiment_v2/fp_zodiac
     save("comparison_scatter_sales_C1_sample_sns (zodiac)", ext="pdf", close=True, verbose=True)
 
 
-print "churn rate prediction begins..."
-
-cm, f1 = churning_accuracy_calculator_with_rf(recent_transaction_data, '2015-08-01')
-
-print "confusion matrix:"
-print cm
-
-print 'F1={}'.format(f1)

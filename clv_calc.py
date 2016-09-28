@@ -119,7 +119,8 @@ def plot_fr_clv_heatmap(data, T=9, max_frequency=None, max_recency=None, **kwarg
         for j in np.arange((max_frequency + 1) / y_bin_size + 1):
             tmp_df = data[(data['frequency_cal'] >= j * y_bin_size) & (data['recency_cal'] >= i * x_bin_size) &
                          (data['frequency_cal'] < (j + 1) * y_bin_size) & (data['recency_cal'] < (i + 1) * x_bin_size)]
-            Z_binned[i][j] = tmp_df['real_total_sales_9'].mean()
+            if tmp_df.shape[0] != 0:
+                Z_binned[i][j] = tmp_df['gg_expected_total_sales_9'].mean()
 
     interpolation = kwargs.pop('interpolation', 'nearest')
 
@@ -1330,4 +1331,4 @@ def performance_comparison_w_zodiac(input_file = 'zodiac_experiment_v2/fp_zodiac
 
     save("comparison_scatter_sales_C1_sample_sns (zodiac)", ext="pdf", close=True, verbose=True)
 
-
+# performance_comparison_w_zodiac()

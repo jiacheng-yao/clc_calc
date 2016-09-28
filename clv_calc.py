@@ -162,6 +162,24 @@ def plot_fr_clv_heatmap(data, T=9, max_frequency=None, max_recency=None, **kwarg
     plt.colorbar(PCM, ax=ax)
     save("fr_clv_heatmap_binned_filtered", ext="pdf", close=True, verbose=True)
 
+    ax = plt.subplot(111)
+    PCM = ax.contourf(Z_filtered[::-1, :], cmap='GnBu')
+    plt.xlabel("Customer's Historical Frequency")
+    plt.ylabel("Customer's Recency")
+    plt.yticks(np.arange(0, Z_filtered.shape[0], x_tick_step),
+               np.arange(0, x_bin_size * Z_filtered.shape[0], x_tick_step * x_bin_size))
+    plt.xticks(np.arange(0, Z_filtered.shape[1], y_tick_step),
+               np.arange(0, y_bin_size * Z_filtered.shape[1], y_tick_step * y_bin_size))
+    plt.title('Predicted Sales for the next {} months\nby Frequency and Recency of a Customer'.format(T))
+
+    # turn matrix into square
+    # forceAspect(ax)
+
+    # plot colorbar beside matrix
+    plt.colorbar(PCM, ax=ax)
+
+    save("fr_clv_heatmap_binned_filtered_contour", ext="pdf", close=True, verbose=True)
+
 
 def custom_plot_probability_alive_matrix(model, max_frequency=None, max_recency=None, **kwargs):
     """
@@ -181,12 +199,58 @@ def custom_plot_probability_alive_matrix(model, max_frequency=None, max_recency=
 
     interpolation = kwargs.pop('interpolation', 'none')
 
+    x_tick_step = 100
+
     ax = plt.subplot(111)
     PCM = ax.imshow(z, interpolation=interpolation, **kwargs)
     plt.xlabel("Customer's Historical Frequency")
     plt.ylabel("Customer's Recency")
-    plt.yticks(np.arange(0, 400, 100.0), np.arange(400, -1, -100))
+    plt.yticks(np.arange(0, 270, 30), np.arange(270, -1, -30))
     plt.title('Probability Customer is Alive,\nby Frequency and Recency of a Customer')
+
+    # turn matrix into square
+    forceAspect(ax)
+
+    # plot colorbar beside matrix
+    plt.colorbar(PCM, ax=ax)
+
+    return ax
+
+
+def custom_plot_frequency_recency_matrix(model, T=1, max_frequency=None, max_recency=None, **kwargs):
+    """
+    Plot a figure of the probability a customer is alive based on their
+    frequency and recency.
+
+    Parameters:
+        model: a fitted lifetimes model.
+        max_frequency: the maximum frequency to plot. Default is max observed frequency.
+        max_recency: the maximum recency to plot. This also determines the age of the customer.
+            Default to max observed age.
+        kwargs: passed into the matplotlib.imshow command.
+    """
+    from matplotlib import pyplot as plt
+
+    if max_frequency is None:
+        max_frequency = int(model.data['frequency'].max())
+
+    if max_recency is None:
+        max_recency = int(model.data['T'].max())
+
+    Z = np.zeros((max_recency + 1, max_frequency + 1))
+    for i, recency in enumerate(np.arange(max_recency + 1)):
+        for j, frequency in enumerate(np.arange(max_frequency + 1)):
+            Z[i, j] = model.conditional_expected_number_of_purchases_up_to_time(T, frequency, recency, max_recency)
+
+    interpolation = kwargs.pop('interpolation', 'none')
+
+    ax = plt.subplot(111)
+    PCM = ax.imshow(Z, interpolation=interpolation, **kwargs)
+    plt.xlabel("Customer's Historical Frequency")
+    plt.ylabel("Customer's Recency")
+    plt.yticks(np.arange(0, 270, 30), np.arange(270, -1, -30))
+    plt.title('Expected Number of Future Purchases for %d Unit%s of Time,'
+              '\nby Frequency and Recency of a Customer' % (T, "s"[T == 1:]))
 
     # turn matrix into square
     forceAspect(ax)

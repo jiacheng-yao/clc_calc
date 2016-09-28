@@ -38,33 +38,39 @@ def daterange(start_date, end_date):
         yield start_date + timedelta(n)
 
 is_summary_available = True
-input_file = "sg_customers.csv"
+input_file = "zodiac_experiment_v2/fp_zodiac_c1.csv"
 output_file = "summary_sg_customers.csv"
+
+zodiac_input = 'zodiac_experiment_v2/predictions_9months_c1.csv'
 
 calibration_output_file = "summary_calibration_sg_customers.csv"
 holdout_output_file = "summary_holdout_sg_customers.csv"
 
 plot_source = "sg"
 
-if is_summary_available is False:
-    # transaction_data = pd.read_csv(input_file, sep=';')
-    transaction_data = pd.read_csv(input_file, sep=';') # for FD dataset
-    # summary = summary_data_from_transaction_data(recent_transaction_data,
-    #                                              'customer_id', 'order_date',
-    #                                              'revenue', observation_period_end='2016-08-03')
-    #
-    # print summary.head()
 
-    # summary.to_csv(output_file, sep=';', encoding='utf-8')
-else:
-    transaction_data = pd.read_csv(input_file, sep=';')
+def data_reader(input_file, plot_source):
+    if is_summary_available is False:
+        # transaction_data = pd.read_csv(input_file, sep=';')
+        transaction_data = pd.read_csv(input_file, sep=';') # for FD dataset
+        # summary = summary_data_from_transaction_data(recent_transaction_data,
+        #                                              'customer_id', 'order_date',
+        #                                              'revenue', observation_period_end='2016-08-03')
+        #
+        # print summary.head()
 
-    # summary = pd.read_csv(output_file, sep=';')
+        # summary.to_csv(output_file, sep=';', encoding='utf-8')
+    else:
+        transaction_data = pd.read_csv(input_file, sep=';')
 
-if plot_source is "sg":
-    transaction_data['order_date'] = transaction_data.order_date.apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
+        # summary = pd.read_csv(output_file, sep=';')
 
-recent_transaction_data = transaction_data[transaction_data['order_date'] > "2014-12-31"]
+    if plot_source is "sg":
+        transaction_data['order_date'] = transaction_data.order_date.apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"))
+
+    recent_transaction_data = transaction_data[transaction_data['order_date'] > "2014-12-31"]
+
+    return recent_transaction_data
 
 
 def forceAspect(ax, aspect=1):
@@ -116,7 +122,7 @@ def plot_fr_clv_heatmap(data, T=9, max_frequency=None, max_recency=None, **kwarg
     interpolation = kwargs.pop('interpolation', 'none')
 
     ax = plt.subplot(111)
-    PCM = ax.imshow(Z_binned, interpolation=interpolation, cmap='GnBu', **kwargs)
+    PCM = ax.imshow(Z_binned, interpolation='nearest', cmap='GnBu', **kwargs)
     plt.xlabel("Customer's Historical Frequency")
     plt.ylabel("Customer's Recency")
     plt.yticks(np.arange(0, Z_binned.shape[0], x_tick_step), np.arange(x_bin_size*Z_binned.shape[0], -1, -x_tick_step*x_bin_size))
@@ -187,7 +193,7 @@ def bgf_analyser(summary, plot_source):
     return bgf
 
 
-def bgf_history_alive(data=recent_transaction_data, bgf=None, customer_id='80_3811'):
+def bgf_history_alive(data, bgf=None, customer_id='80_3811'):
     id = customer_id
     days_since_birth = 365
     sp_trans = data.ix[data['customer_id'] == id]
@@ -195,7 +201,7 @@ def bgf_history_alive(data=recent_transaction_data, bgf=None, customer_id='80_38
     save("history_alive_{}".format(plot_source), ext="pdf", close=True, verbose=True)
 
 
-def cal_vs_holdout_in_parallel(data=recent_transaction_data, calibration_period_end='2016-05-01'):
+def cal_vs_holdout_in_parallel(data, calibration_period_end='2016-05-01'):
     print calibration_period_end
 
     bgf_ = BetaGeoFitter(penalizer_coef=0.0)
@@ -300,7 +306,7 @@ def ggf_analyser(summary, bgf=None):
     )
 
 
-def transaction_count_accuracy_calculator(prediction_model, data=recent_transaction_data,
+def transaction_count_accuracy_calculator(prediction_model, data,
                                           calibration_period_end='2016-05-01',
                                           observation_period_end='2016-08-01'):
     summary_cal_holdout = calibration_and_holdout_data(data, 'customer_id', 'order_date',
@@ -336,7 +342,7 @@ def transaction_count_accuracy_calculator(prediction_model, data=recent_transact
     return summary_cal_holdout['frequency_holdout'], summary_cal_holdout['pred_trans_count']
 
 
-def transaction_count_accuracy_calculator_per_cohort(prediction_model, data=recent_transaction_data, cohort='2015-06',
+def transaction_count_accuracy_calculator_per_cohort(prediction_model, data, cohort='2015-06',
                                                      calibration_period_end='2016-05-01',
                                                      observation_period_end='2016-08-01'):
     data.set_index('customer_id', inplace=True)
@@ -350,7 +356,7 @@ def transaction_count_accuracy_calculator_per_cohort(prediction_model, data=rece
                                                  observation_period_end)
 
 
-def transaction_count_accuracy_calculator_cohort_comparison(data=recent_transaction_data):
+def transaction_count_accuracy_calculator_cohort_comparison(data):
     cohort_start = date(2015, 6, 1)
     cohort_end = date(2016, 3, 1)
 
@@ -368,7 +374,7 @@ def transaction_count_accuracy_calculator_cohort_comparison(data=recent_transact
     return mse_list, mse_div_avg_list, r2_list
 
 
-def clv_accuracy_calculator(prediction_model, data=recent_transaction_data,
+def clv_accuracy_calculator(prediction_model, data,
                             discount_rate=0, calibration_period_end='2016-05-01',
                             observation_period_end='2016-08-01'):
     calibration_data = data[data['order_date'] < calibration_period_end]
@@ -414,7 +420,7 @@ def clv_accuracy_calculator(prediction_model, data=recent_transaction_data,
     return df['real_clv'], df['pred_clv']
 
 
-def clv_classifier(data=recent_transaction_data,
+def clv_classifier(data,
                    calibration_period_end='2016-05-01',
                    observation_period_end='2016-08-01'):
     calibration_data = data[data['order_date'] < calibration_period_end]
@@ -439,7 +445,7 @@ def clv_classifier(data=recent_transaction_data,
     threshold_1_percent = 0.5
     threshold_2_percent = 0.75
 
-    class_threshold = recent_transaction_data['revenue'].quantile([threshold_1_percent, threshold_2_percent])
+    class_threshold = calibration_data['revenue'].quantile([threshold_1_percent, threshold_2_percent])
 
     threshold_1 = class_threshold.loc[threshold_1_percent]
     threshold_2 = class_threshold.loc[threshold_2_percent]
@@ -469,7 +475,7 @@ def clv_classifier(data=recent_transaction_data,
     return cm, f1
 
 
-def clv_accuracy_calculator_per_cohort(prediction_model, data=recent_transaction_data, cohort='2015-06',
+def clv_accuracy_calculator_per_cohort(prediction_model, data, cohort='2015-06',
                                        discount_rate=0, calibration_period_end='2016-05-01',
                                        observation_period_end='2016-08-01'):
     data.set_index('customer_id', inplace=True)
@@ -483,7 +489,7 @@ def clv_accuracy_calculator_per_cohort(prediction_model, data=recent_transaction
                                    observation_period_end)
 
 
-def clv_accuracy_calculator_cohort_comparison(data=recent_transaction_data):
+def clv_accuracy_calculator_cohort_comparison(data):
     cohort_start = date(2015, 6, 1)
     cohort_end = date(2016, 3, 1)
 
@@ -501,7 +507,7 @@ def clv_accuracy_calculator_cohort_comparison(data=recent_transaction_data):
     return mae_list, mae_div_avg_list, r2_list
 
 
-def churning_accuracy_calculator(prediction_model, data=recent_transaction_data,
+def churning_accuracy_calculator(prediction_model, data,
                                  calibration_period_end='2015-08-01', threshold=0.65):
     calibration_data = data[data['order_date'] < calibration_period_end]
 
@@ -578,7 +584,8 @@ def churning_rate_tp_tn_cutoff_impact(alive_prob, is_alive):
 
     return optimal_threshold
 
-def calibration_period_length_impact(data=recent_transaction_data,
+
+def calibration_period_length_impact(data,
                                      observation_period_start='2014-12-31', observation_period_end='2016-08-01'):
     calibration_percentage = np.arange(0.1, 1, 0.1)
 
@@ -608,7 +615,7 @@ def calibration_period_length_impact(data=recent_transaction_data,
     save("cal_percentage_churnrate_f1_impact_{}".format(plot_source), ext="pdf", close=True, verbose=True)
 
 
-def churning_accuracy_calculator_with_rf(data=recent_transaction_data, calibration_period_end='2015-08-01'):
+def churning_accuracy_calculator_with_rf(data, calibration_period_end='2015-08-01'):
     calibration_data = data[data['order_date'] < calibration_period_end]
 
     holdout_data = data[data['order_date'] >= calibration_period_end]
@@ -734,7 +741,7 @@ def knn_optimizer(X, y, scoring='f1', n_iter=10):
     return optimal_parameter
 
 
-def churning_accuracy_calculator_with_xgboost(data=recent_transaction_data, calibration_period_end='2016-03-01'):
+def churning_accuracy_calculator_with_xgboost(data, calibration_period_end='2016-03-01'):
     calibration_data = data[data['order_date'] < calibration_period_end]
 
     holdout_data = data[data['order_date'] >= calibration_period_end]
@@ -1078,8 +1085,12 @@ def feature_adder(calibration_data, calibration_summary, calibration_period_end)
     return calibration_summary
 
 
-def performance_comparison_w_zodiac(data = transaction_data, zodiac_input = 'predictions_9months_c1.csv',
+def performance_comparison_w_zodiac(input_file = 'zodiac_experiment_v2/fp_zodiac_c1.csv',
+                                    zodiac_input = 'zodiac_experiment_v2/predictions_9months_c1.csv',
                                     observation_start = '2015-01-01', observation_duration = 78*7):
+    data = pd.read_csv(input_file, sep=',')
+    data.columns = ['order_date', 'customer_id', 'revenue']
+
     zodiac_pred_results = pd.read_csv(zodiac_input, sep=',')
 
     observation_end = datetime.strptime(observation_start, '%Y-%m-%d').date() + timedelta(days=observation_duration)
@@ -1154,7 +1165,9 @@ def performance_comparison_w_zodiac(data = transaction_data, zodiac_input = 'pre
     # res_sample = res.sample(frac=0.1)
 
     plot_fr_clv_heatmap(res)
-    save("fr_clv_heatmap_binned", ext="pdf", close=True, verbose=True)
+    save("fr_clv_heatmap_binned_test", ext="pdf", close=True, verbose=True)
+
+    print "Plot rendering procedure completed..."
 
     trans_mae = mean_absolute_error(zodiac_pred_results['real_total_trans_9'], zodiac_pred_results['gg_pred_total_trans_9'])
     trans_mae_div_avg = mean_absolute_error(zodiac_pred_results['real_total_trans_9'],

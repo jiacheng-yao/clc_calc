@@ -184,7 +184,7 @@ def random_forest_model(X_train, X_test, y_train, y_test, features_columns):
 
 def get_best_model(input_trans='/Users/yao.jiacheng/Documents/mix notebooks/dwh_il.fct_orders.csv',
                    input_custs='/Users/yao.jiacheng/Documents/mix notebooks/dwh_il.dim_customer.csv',
-                   calibration_period_end='2016-03-31',
+                   calibration_period_end='2016-04-30',
                    save_file_name='/Users/yao.jiacheng/Documents/mix notebooks/best_model_dh.pkl'):
     """
     Save & return the best model

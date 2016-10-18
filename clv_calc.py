@@ -794,6 +794,8 @@ def random_forest_optimizer(X, y, scoring='f1', n_iter=10):
         rand.fit(X, y)
         best_scores.append(rand.best_score_)
         best_parameters.append(rand.best_params_)
+        print "current best score - {} and parameter: {}".format(rand.best_score_,
+                                                                 rand.best_params_)
 
     max_score = max(best_scores)
     max_index = best_scores.index(max_score)

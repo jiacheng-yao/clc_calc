@@ -33,7 +33,7 @@ def daterange(start_date, end_date):
 
 def load_data(input_trans='/Users/yao.jiacheng/Documents/mix notebooks/dwh_il.fct_orders.csv',
               input_custs='/Users/yao.jiacheng/Documents/mix notebooks/dwh_il.dim_customer.csv',
-              calibration_period_end='2016-04-30'):
+              calibration_period_end='2016-05-31'):
     trans_data = pd.read_csv(input_trans, encoding='utf-8')
     custs_data = pd.read_csv(input_custs, encoding='utf-8')
 
@@ -95,6 +95,10 @@ def load_data(input_trans='/Users/yao.jiacheng/Documents/mix notebooks/dwh_il.fc
                                                                 other_cols,
                                                                 observation_period_end='2016-06-30')
 
+    return calibration_summary, holdout_summary, custs_data
+
+
+def split_data(calibration_summary, holdout_summary, custs_data):
     calibration_summary.reset_index(inplace=True)
     calibration_summary = pd.merge(calibration_summary, custs_data, how='inner', on=['customer_id'])
     calibration_summary.set_index('customer_id', inplace=True)

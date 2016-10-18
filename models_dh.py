@@ -8,7 +8,10 @@ import numpy as np
 import sklearn.preprocessing
 import cPickle
 
-from churn_prediction_comparison import load_data
+from churn_prediction_comparison import load_data, split_data
+
+from sklearn.metrics import mean_squared_error, mean_absolute_error, \
+    confusion_matrix, r2_score, f1_score, roc_curve, auc, accuracy_score, roc_auc_score
 
 
 class NaiveModel(object):
@@ -184,7 +187,7 @@ def random_forest_model(X_train, X_test, y_train, y_test, features_columns):
 
 def get_best_model(input_trans='/Users/yao.jiacheng/Documents/mix notebooks/dwh_il.fct_orders.csv',
                    input_custs='/Users/yao.jiacheng/Documents/mix notebooks/dwh_il.dim_customer.csv',
-                   calibration_period_end='2016-04-30',
+                   calibration_period_end='2016-05-31',
                    save_file_name='/Users/yao.jiacheng/Documents/mix notebooks/best_model_dh.pkl'):
     """
     Save & return the best model
@@ -193,7 +196,8 @@ def get_best_model(input_trans='/Users/yao.jiacheng/Documents/mix notebooks/dwh_
     :param scaler_save_file_name: String -- the path to save the scaler (as a cPickle file)
     :return: sklearn.model, sklearn.preprocessing.StandardScaler
     """
-    X_train, X_test, y_train, y_test= load_data(input_trans, input_custs, calibration_period_end)
+    calibration_summary, holdout_summary, custs_data = load_data(input_trans, input_custs, calibration_period_end)
+    X_train, X_test, y_train, y_test= split_data(calibration_summary, holdout_summary, custs_data)
 
     features_columns = X_train.columns
 
@@ -216,7 +220,16 @@ def get_best_model(input_trans='/Users/yao.jiacheng/Documents/mix notebooks/dwh_
     best_model, accuracy = model_functions[best_i](
         X_test, X_test, y_test, y_test, features_columns)
 
+    dtest_predictions = best_model.predict(X_test[features_columns])
+    dtest_predprob = best_model.predict_proba(X_test[features_columns])[:, 1]
+
+    f1 = f1_score(y_test, dtest_predictions)
+    cm = confusion_matrix(y_test, dtest_predictions)
+    fpr, tpr, thresholds = roc_curve(y_test, dtest_predprob, pos_label=1)
+    auc_score = auc(fpr, tpr)
+    acc = accuracy_score(y_test, dtest_predictions)
+
     with open(save_file_name, 'wb') as f:
         cPickle.dump(best_model, f)
 
-    return best_model
+    return best_model, acc, auc_score, f1, cm

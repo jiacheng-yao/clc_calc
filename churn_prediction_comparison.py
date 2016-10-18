@@ -33,7 +33,7 @@ def daterange(start_date, end_date):
 
 def load_data(input_trans='/Users/yao.jiacheng/Documents/mix notebooks/dwh_il.fct_orders.csv',
               input_custs='/Users/yao.jiacheng/Documents/mix notebooks/dwh_il.dim_customer.csv',
-              calibration_period_end='2016-03-31'):
+              calibration_period_end='2016-04-30'):
     trans_data = pd.read_csv(input_trans, encoding='utf-8')
     custs_data = pd.read_csv(input_custs, encoding='utf-8')
 

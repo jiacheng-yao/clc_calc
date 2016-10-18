@@ -136,13 +136,6 @@ def gradient_boosted_classifier_model(X_train, X_test, y_train, y_test, features
     for i in range(len(features_columns)):
         print '{0}: {1}'.format(features_columns[i], cls.feature_importances_[i])
 
-    buckets = defaultdict(list)
-    for i in range(len(y_test)):
-        p = cls.predict_proba([X_test[i]])
-        p = int(np.round(p[0][1] * 10.0))
-
-        buckets[p].append(y_test[i])
-
     return cls, accuracy
 
 

@@ -9,6 +9,8 @@ from sklearn.grid_search import GridSearchCV, RandomizedSearchCV
 
 import matplotlib.pyplot as plt
 
+import itertools
+
 import seaborn as sns
 
 from skimage.filters import gaussian
@@ -1123,7 +1125,7 @@ def xgboost_fit(alg, X_train, X_test, y_train, y_test,
         xgtrain = xgb.DMatrix(X_train[predictors].values, label=y_train.values)
         xgtest = xgb.DMatrix(X_test[predictors].values)
         cvresult = xgb.cv(xgb_param, xgtrain, num_boost_round=alg.get_params()['n_estimators'], nfold=cv_folds,
-                          metrics='auc', early_stopping_rounds=early_stopping_rounds, verbose_eval=False)
+                          metrics='auc', early_stopping_rounds=early_stopping_rounds, verbose_eval=True)
         alg.set_params(n_estimators=cvresult.shape[0])
 
     # Fit the algorithm on the data
@@ -1142,9 +1144,12 @@ def xgboost_fit(alg, X_train, X_test, y_train, y_test,
     dtest_predprob = alg.predict_proba(X_test[predictors])[:, 1]
     print 'AUC Score (Test): %f' % roc_auc_score(y_test, dtest_predprob)
 
-    feat_imp = pd.Series(alg.booster().get_fscore()).sort_values(ascending=False)
-    feat_imp.plot(kind='bar', title='Feature Importances')
+     # feat_imp = pd.Series(alg.booster().get_fscore()).sort_values(ascending=False)
+    dict_feat_imp = dict(itertools.izip(predictors, alg.feature_importances_))
+    feat_imp = pd.Series(dict_feat_imp).sort_values(ascending=False)
+    feat_imp.plot(kind='bar', title='Feature Importances', figsize=[18,18], fontsize=13)
     plt.ylabel('Feature Importance Score')
+    save("xgb_feature_importance", ext="pdf", close=True, verbose=True)
 
 
 def feature_adder(calibration_data, calibration_summary, calibration_period_end):

@@ -211,12 +211,12 @@ def custom_summary_data_from_transaction_data(transactions, customer_id_col, dat
     customers = repeated_transactions.groupby(customer_id_col, sort=False)[datetime_col].agg(['min', 'max', 'count'])
 
     # subtract 1 from count, as we ignore their first order.
-    customers['frequency'] = customers['count'] - 1
-
+    customers['order_count'] = customers['count'] - 1
     customers['T'] = (observation_period_end - customers['min'])
+    customers['frequency'] = customers['order_count'] / customers['T'].astype(float)
     customers['recency'] = (customers['max'] - customers['min'])
 
-    summary_columns = ['frequency', 'recency', 'T']
+    summary_columns = ['order_count', 'recency', 'T', 'frequency']
 
     if other_cols:
         for col in other_cols:
